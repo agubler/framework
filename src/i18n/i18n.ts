@@ -4,7 +4,7 @@ import Map from '../shim/Map';
 import Evented from '../core/Evented';
 import has from '../core/has';
 import uuid from '../core/uuid';
-import { Handle } from '../core/interfaces';
+import { Handle, EventObject } from '../core/interfaces';
 import { useDefault } from '../core/load/util';
 import * as Globalize from 'globalize/dist/globalize/message';
 import { isLoaded } from './cldr/load';
@@ -73,10 +73,14 @@ export interface Messages {
 	[key: string]: string;
 }
 
+export interface I18nEventObject extends EventObject<string> {
+	target: any;
+}
+
 const TOKEN_PATTERN = /\{([a-z0-9_]+)\}/gi;
 const bundleMap = new Map<string, Map<string, Messages>>();
 const formatterMap = new Map<string, MessageFormatter>();
-const localeProducer = new Evented();
+const localeProducer = new Evented<{}, string, I18nEventObject>();
 let rootLocale: string;
 
 /**
@@ -257,7 +261,7 @@ export function formatMessage<T extends Messages>(
  *
  * @return The cached messages object, if it exists.
  */
-export function getCachedMessages<T extends Messages>(bundle: Bundle<T>, locale: string): T | void {
+export function getCachedMessages<T extends Messages>(bundle: Bundle<T>, locale: string): T | undefined {
 	const { id = getBundleId(bundle), locales, messages } = bundle;
 	const cached = bundleMap.get(id);
 

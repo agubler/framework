@@ -20,7 +20,7 @@ function createBeforeSpy() {
 	});
 }
 
-function indexableTests(property: string | symbol): ObjectSuiteDescriptor {
+function indexableTests(property: string): ObjectSuiteDescriptor {
 	return {
 		beforeEach() {
 			methodSpy = sinon.spy(function(a: number) {
@@ -579,7 +579,7 @@ function mapTests(property: string | symbol): ObjectSuiteDescriptor {
 registerSuite('aspect', {
 	'with indexable objects': {
 		'string properties': indexableTests('method'),
-		'symbol properties': indexableTests(Symbol())
+		'symbol properties': indexableTests(Symbol() as any)
 	},
 
 	'with maps': {

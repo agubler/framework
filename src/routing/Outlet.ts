@@ -62,7 +62,7 @@ export function Outlet<W extends WidgetBaseInterface, F extends WidgetBaseInterf
 		}
 
 		protected render(): DNode {
-			let { router, ...properties } = this.properties;
+			let { router, ...properties } = this.properties as any;
 
 			const outletContext = router.getOutlet(outlet);
 			if (outletContext) {

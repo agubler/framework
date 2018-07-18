@@ -70,7 +70,7 @@ registerSuite('async/timing', {
 		},
 
 		'called before the timeout; passes function; resolves the promise': function() {
-			return Promise.resolve((): string => 'unused').then(timing.timeout(100, new Error('Error')));
+			return Promise.resolve((): string => 'unused').then(timing.timeout<string>(100, new Error('Error')));
 		},
 
 		'called after the timeout; rejects the promise': function() {

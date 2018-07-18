@@ -59,6 +59,38 @@ export interface AnimationPlayer {
 	used: boolean;
 }
 
+declare class KeyframeEffect implements AnimationEffectReadOnly {
+	constructor(
+		target: HTMLElement,
+		effect: AnimationKeyFrame | AnimationKeyFrame[],
+		timing: number | AnimationEffectTiming,
+		id?: string
+	);
+	activeDuration: number;
+	onsample: (timeFraction: number | null, effect: KeyframeEffect, animation: Animation) => void | undefined;
+	parent: KeyframeEffect | null;
+	target: HTMLElement;
+	timing: number;
+	getComputedTiming(): ComputedTimingProperties;
+	getFrames(): AnimationKeyFrame[];
+	remove(): void;
+}
+
+interface AnimationEffectTiming {
+	delay?: number;
+	direction?: AnimationEffectTimingPlaybackDirection;
+	duration?: number;
+	easing?: string;
+	endDelay?: number;
+	fill?: AnimationEffectTimingFillMode;
+	iterationStart?: number;
+	iterations?: number;
+	playbackRate?: number;
+}
+
+type AnimationEffectTimingFillMode = 'none' | 'forwards' | 'backwards' | 'both' | 'auto';
+type AnimationEffectTimingPlaybackDirection = 'normal' | 'reverse' | 'alternate' | 'alternate-reverse';
+
 export class WebAnimations extends Base {
 	private _animationMap = new Map<string, AnimationPlayer>();
 
@@ -161,7 +193,7 @@ export class WebAnimations extends Base {
 			const { currentTime, playState, playbackRate, startTime } = animation.player;
 
 			return {
-				currentTime,
+				currentTime: currentTime || 0,
 				playState,
 				playbackRate,
 				startTime

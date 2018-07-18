@@ -86,10 +86,10 @@ export default function(args: any): ObjectSuiteDescriptor {
 			'on - multiple handlers'() {
 				const order: any[] = [];
 				testOn(target, ['a', 'b'], function(event: CustomEvent) {
-					order.push(`1${event.type}`);
+					order.push(`1${event.type.toString()}`);
 				});
 				testOn(target, ['a', 'c'], function(event: CustomEvent) {
-					order.push(`2${event.type}`);
+					order.push(`2${event.type.toString()}`);
 				});
 				emit(target, { type: 'a' });
 				emit(target, { type: 'b' });

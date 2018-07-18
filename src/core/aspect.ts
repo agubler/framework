@@ -210,7 +210,7 @@ function adviseJoinPoint<F extends GenericFunction<T>, T>(
  * @return The dispatcher
  */
 function getDispatcherObject(target: Targetable, methodName: string | symbol): Dispatcher {
-	const existing = isMapLike(target) ? target.get(methodName) : target && target[methodName];
+	const existing = isMapLike(target) ? target.get(methodName) : target && target[methodName as any];
 	let dispatcher: Dispatcher;
 
 	if (!existing || existing.target !== target) {
@@ -251,7 +251,7 @@ function getDispatcherObject(target: Targetable, methodName: string | symbol): D
 		if (isMapLike(target)) {
 			target.set(methodName, dispatcher);
 		} else {
-			target && (target[methodName] = dispatcher);
+			target && (target[methodName as any] = dispatcher);
 		}
 
 		if (existing) {
