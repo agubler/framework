@@ -63,6 +63,7 @@ class HelloDojo extends WidgetBase {
 
 To display your new component in the view you will to use the `renderer` from the `@dojo/framework/widget-core/vdom` module. The `renderer` function accepts function that returns your component using the `w()` pragma and calling `.mount()` on the returned API.
 
+<!--READMEONLY-->
 ```ts
 import renderer from '@dojo/framework/widget-core/vdom';
 import { w } from '@dojo/framework/widget-core/d';
@@ -70,10 +71,13 @@ import { w } from '@dojo/framework/widget-core/d';
 const r = renderer(() => w(HelloDojo, {}));
 r.mount();
 ```
-
 <!--widget-core-readme-01-->
-
 [![Edit widget-core-readme-01](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/300oxjkoyp)
+<!--READMEONLY-->
+
+<!--DOCSONLY
+<iframe src="https://codesandbox.io/embed/300oxjkoyp?autoresize=1&fontsize=12&hidenavigation=1&module=%2Fsrc%2Fwidgets%2FList.ts&view=editor" style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;" sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"></iframe>
+DOCSONLY-->
 
 `renderer#mount` accepts an optional argument of `MountOptions` that controls configuration of the mount operation.
 
@@ -114,6 +118,7 @@ We have created a widget used to project our `VNode`s into the DOM, however, wid
 
 Properties are available on the widget instance, defined by an interface and passed as a [`generic`](https://www.typescriptlang.org/docs/handbook/generics.html) to the `WidgetBase` class when creating your custom widget. The properties interface should extend the base `WidgetProperties` provided from `@dojo/framework/widget-core/interfaces`:
 
+<!--READMEONLY-->
 ```ts
 interface MyProperties extends WidgetProperties {
 	name: string;
@@ -127,12 +132,14 @@ class Hello extends WidgetBase<MyProperties> {
 	}
 }
 ```
+<!--widget-core-readme-02-->
+[![Edit widget-core-readme-02](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/9ynz3wkqn4)<!--READMEONLY-->
+
+<!--DOCSONLY
+<iframe src="https://codesandbox.io/embed/9ynz3wkqn4?autoresize=1&fontsize=12&hidenavigation=1&module=%2Fsrc%2Fwidgets%2FList.ts&view=editor" style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;" sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"></iframe>
+DOCSONLY-->
 
 New properties are compared with the previous properties to determine if a widget requires re-rendering. By default Dojo uses the `auto` diffing strategy, that performs a shallow comparison for objects and arrays, ignores functions (except classes that extend `WidgetBase`) and a reference comparison for all other values.
-
-<!--widget-core-readme-02-->
-
-[![Edit widget-core-readme-02](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/9ynz3wkqn4)
 
 #### Internal Widget State
 
@@ -300,7 +307,7 @@ export default class List extends WidgetBase<ListProperties> {
 ```
 
 [![Edit widget-core-readme-3](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/13korpwzyj)<!--READMEONLY-->
-<!--DOCSONLY<
+<!--DOCSONLY
 <iframe src="https://codesandbox.io/embed/13korpwzyj?autoresize=1&fontsize=12&hidenavigation=1&module=%2Fsrc%2Fwidgets%2FList.ts&view=editor" style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;" sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"></iframe>
 DOCSONLY-->
 
