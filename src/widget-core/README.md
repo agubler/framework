@@ -301,6 +301,7 @@ export default class List extends WidgetBase<ListProperties> {
 Additionally, the `ListItem` is now reusable in other areas of our application(s).
 
 [![Edit widget-core-readme-3](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/13korpwzyj)
+<iframe src="https://codesandbox.io/embed/300oxjkoyp" style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;" sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"></iframe>
 
 ### Mixins
 
