@@ -76,7 +76,7 @@ r.mount();
 <!--READMEONLY-->
 
 <!--DOCSONLY
-<iframe src="https://codesandbox.io/embed/300oxjkoyp?autoresize=1&fontsize=12&hidenavigation=1&module=%2Fsrc%2Fwidgets%2FList.ts&view=editor" style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;" sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"></iframe>
+<iframe src="https://codesandbox.io/embed/300oxjkoyp?autoresize=1&fontsize=12&hidenavigation=1&module=%2Fsrc%2Fwidgets%2Fmain.ts&view=editor" style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;" sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"></iframe>
 DOCSONLY-->
 
 `renderer#mount` accepts an optional argument of `MountOptions` that controls configuration of the mount operation.
@@ -136,7 +136,7 @@ class Hello extends WidgetBase<MyProperties> {
 [![Edit widget-core-readme-02](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/9ynz3wkqn4)<!--READMEONLY-->
 
 <!--DOCSONLY
-<iframe src="https://codesandbox.io/embed/9ynz3wkqn4?autoresize=1&fontsize=12&hidenavigation=1&module=%2Fsrc%2Fwidgets%2FList.ts&view=editor" style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;" sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"></iframe>
+<iframe src="https://codesandbox.io/embed/9ynz3wkqn4?autoresize=1&fontsize=12&hidenavigation=1&module=%2Fsrc%2Fwidgets%2Fmain.ts&view=editor" style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;" sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"></iframe>
 DOCSONLY-->
 
 New properties are compared with the previous properties to determine if a widget requires re-rendering. By default Dojo uses the `auto` diffing strategy, that performs a shallow comparison for objects and arrays, ignores functions (except classes that extend `WidgetBase`) and a reference comparison for all other values.
@@ -689,6 +689,7 @@ When `shouldFocus` is passed to a widget, it will be called as the properties ar
 
 An example usage controlling focus across child VNodes (DOM) and WNodes (widgets):
 
+<!--READMEONLY-->
 ```ts
 interface FocusInputChildProperties {
 	onFocus: () => void;
@@ -770,7 +771,11 @@ class FocusParent extends Focus(WidgetBase) {
 }
 ```
 
-[![Edit widget-core-readme-04](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/1vzlzn1nmj)
+[![Edit widget-core-readme-04](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/1vzlzn1nmj)<!--READMEONLY-->
+
+<!--DOCSONLY
+<iframe src="https://codesandbox.io/embed/1vzlzn1nmj?autoresize=1&fontsize=12&hidenavigation=1&module=%2Fsrc%2Fwidgets%2FDemo.ts&view=editor" style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;" sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"></iframe>
+DOCSONLY-->
 
 ### Advanced Properties
 
