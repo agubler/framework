@@ -2773,6 +2773,7 @@ jsdomDescribe('vdom', () => {
 				const [Widget, meta] = getWidget(v('div', { classes: ['a'] }));
 				const r = renderer(() => w(Widget, {}));
 				const div = document.createElement('div');
+				debugger;
 				r.mount({ domNode: div, sync: true });
 				const root = div.childNodes[0] as HTMLElement;
 				assert.strictEqual(root.className, 'a');

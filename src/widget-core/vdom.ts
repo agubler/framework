@@ -1,15 +1,7 @@
 import global from '../shim/global';
-import has from '../has/has';
+// import has from '../has/has';
 import { WeakMap } from '../shim/WeakMap';
-import {
-	WNode,
-	VNode,
-	DNode,
-	VNodeProperties,
-	WidgetBaseConstructor,
-	TransitionStrategy,
-	DomVNode
-} from './interfaces';
+import { WNode, VNode, VNodeProperties, WidgetBaseConstructor, TransitionStrategy, DomVNode } from './interfaces';
 import transitionStrategy from './animations/cssTransitions';
 import { isVNode, isWNode, WNODE, v, isDomVNode, w } from './d';
 import { Registry, isWidgetBaseConstructor } from './Registry';
@@ -19,6 +11,7 @@ export interface BaseNodeWrapper {
 	node: WNode | VNode;
 	domNode?: Node;
 	childrenWrappers?: DNodeWrapper[];
+	rendered?: SpecialDNode[];
 	depth: number;
 	requiresInsertBefore?: boolean;
 	hasPreviousSiblings?: boolean;
@@ -43,6 +36,8 @@ export interface VNodeWrapper extends BaseNodeWrapper {
 
 export type DNodeWrapper = VNodeWrapper | WNodeWrapper;
 
+export type SpecialDNode = VNode | WNode;
+
 export interface MountOptions {
 	sync: boolean;
 	merge: boolean;
@@ -57,8 +52,8 @@ export interface Renderer {
 }
 
 interface ProcessItem {
-	current?: (WNodeWrapper | VNodeWrapper)[];
-	next?: (WNodeWrapper | VNodeWrapper)[];
+	current?: SpecialDNode[];
+	next?: SpecialDNode[];
 	meta: ProcessMeta;
 }
 
@@ -69,6 +64,8 @@ interface ProcessResult {
 }
 
 interface ProcessMeta {
+	parent?: any;
+	previous?: any;
 	mergeNodes?: Node[];
 	oldIndex?: number;
 	newIndex?: number;
@@ -152,7 +149,7 @@ type ApplicationInstruction =
 	| AttachApplication
 	| DetachApplication;
 
-const EMPTY_ARRAY: DNodeWrapper[] = [];
+const EMPTY_ARRAY: SpecialDNode[] = [];
 const nodeOperations = ['focus', 'blur', 'scrollIntoView', 'click'];
 const NAMESPACE_W3 = 'http://www.w3.org/';
 const NAMESPACE_SVG = NAMESPACE_W3 + '2000/svg';
@@ -225,42 +222,6 @@ function buildPreviousProperties(domNode: any, current: VNodeWrapper, next: VNod
 	return newProperties;
 }
 
-function checkDistinguishable(wrappers: DNodeWrapper[], index: number, parentWNodeWrapper?: WNodeWrapper) {
-	const wrapperToCheck = wrappers[index];
-	if (isVNodeWrapper(wrapperToCheck) && !wrapperToCheck.node.tag) {
-		return;
-	}
-	const { key } = wrapperToCheck.node.properties;
-	let parentName = 'unknown';
-	if (parentWNodeWrapper) {
-		const {
-			node: { widgetConstructor }
-		} = parentWNodeWrapper;
-		parentName = (widgetConstructor as any).name || 'unknown';
-	}
-
-	if (key === undefined || key === null) {
-		for (let i = 0; i < wrappers.length; i++) {
-			if (i !== index) {
-				const wrapper = wrappers[i];
-				if (same(wrapper, wrapperToCheck)) {
-					let nodeIdentifier: string;
-					if (isWNodeWrapper(wrapper)) {
-						nodeIdentifier = (wrapper.node.widgetConstructor as any).name || 'unknown';
-					} else {
-						nodeIdentifier = wrapper.node.tag;
-					}
-
-					console.warn(
-						`A widget (${parentName}) has had a child added or removed, but they were not able to uniquely identified. It is recommended to provide a unique 'key' property when using the same widget or element (${nodeIdentifier}) multiple times as siblings`
-					);
-					break;
-				}
-			}
-		}
-	}
-}
-
 function same(dnode1: DNodeWrapper, dnode2: DNodeWrapper): boolean {
 	if (isVNodeWrapper(dnode1) && isVNodeWrapper(dnode2)) {
 		if (isDomVNode(dnode1.node) && isDomVNode(dnode2.node)) {
@@ -290,9 +251,20 @@ function same(dnode1: DNodeWrapper, dnode2: DNodeWrapper): boolean {
 	return false;
 }
 
-function findIndexOfChild(children: DNodeWrapper[], sameAs: DNodeWrapper, start: number) {
+function findIndexOfChild(
+	children: SpecialDNode[],
+	sameAs: DNodeWrapper,
+	start: number,
+	map: WeakMap<SpecialDNode, DNodeWrapper>
+) {
 	for (let i = start; i < children.length; i++) {
-		if (same(children[i], sameAs)) {
+		const wrapper =
+			map.get(children[i]) ||
+			({
+				node: children[i],
+				depth: 0
+			} as DNodeWrapper);
+		if (same(wrapper, sameAs)) {
 			return i;
 		}
 	}
@@ -375,6 +347,9 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 	let _instanceToWrapperMap = new WeakMap<WidgetBase, WNodeWrapper>();
 	let _parentWrapperMap = new WeakMap<DNodeWrapper, DNodeWrapper>();
 	let _wrapperSiblingMap = new WeakMap<DNodeWrapper, DNodeWrapper>();
+
+	let _nodeToWrapperMap = new WeakMap<VNode | WNode, DNodeWrapper>();
+
 	let _renderScheduled: number | undefined;
 	let _afterRenderCallbacks: Function[] = [];
 	let _deferredRenderCallbacks: Function[] = [];
@@ -442,45 +417,40 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 	}
 
 	function renderedToWrapper(
-		rendered: DNode[],
+		renderedItem: SpecialDNode,
 		parent: DNodeWrapper,
-		currentParent: DNodeWrapper | null
-	): DNodeWrapper[] {
-		const wrappedRendered: DNodeWrapper[] = [];
+		currentParent: DNodeWrapper | null,
+		previous: DNodeWrapper
+	): DNodeWrapper {
 		const hasParentWNode = isWNodeWrapper(parent);
 		const currentParentLength = isVNodeWrapper(currentParent) && (currentParent.childrenWrappers || []).length > 1;
 		const requiresInsertBefore =
 			((parent.requiresInsertBefore || parent.hasPreviousSiblings !== false) && hasParentWNode) ||
 			currentParentLength;
-		let previousItem: DNodeWrapper | undefined;
-		for (let i = 0; i < rendered.length; i++) {
-			const renderedItem = rendered[i];
-			const wrapper = {
-				node: renderedItem,
-				depth: parent.depth + 1,
-				requiresInsertBefore,
-				hasParentWNode,
-				namespace: parent.namespace
-			} as DNodeWrapper;
-			if (isVNode(renderedItem) && renderedItem.properties.exitAnimation) {
-				parent.hasAnimations = true;
-				let nextParent = _parentWrapperMap.get(parent);
-				while (nextParent) {
-					if (nextParent.hasAnimations) {
-						break;
-					}
-					nextParent.hasAnimations = true;
-					nextParent = _parentWrapperMap.get(nextParent);
+		const wrapper = {
+			node: renderedItem,
+			depth: parent.depth + 1,
+			requiresInsertBefore,
+			hasParentWNode,
+			namespace: parent.namespace
+		} as DNodeWrapper;
+		if (isVNode(renderedItem) && renderedItem.properties.exitAnimation) {
+			parent.hasAnimations = true;
+			let nextParent = _parentWrapperMap.get(parent);
+			while (nextParent) {
+				if (nextParent.hasAnimations) {
+					break;
 				}
+				nextParent.hasAnimations = true;
+				nextParent = _parentWrapperMap.get(nextParent);
 			}
-			_parentWrapperMap.set(wrapper, parent);
-			if (previousItem) {
-				_wrapperSiblingMap.set(previousItem, wrapper);
-			}
-			wrappedRendered.push(wrapper);
-			previousItem = wrapper;
 		}
-		return wrappedRendered;
+		_nodeToWrapperMap.set(renderedItem, wrapper);
+		_parentWrapperMap.set(wrapper, parent);
+		if (previous) {
+			_wrapperSiblingMap.set(previous, wrapper);
+		}
+		return wrapper;
 	}
 
 	function findParentWNodeWrapper(currentNode: DNodeWrapper): WNodeWrapper | undefined {
@@ -723,15 +693,10 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		if (isVNode(renderResult)) {
 			renderResult = w(wrapVNodes(renderResult), {});
 		}
-		const nextWrapper = {
-			node: renderResult,
-			depth: 1
-		};
-		_parentWrapperMap.set(nextWrapper, { depth: 0, domNode, node: v('fake') });
 		_processQueue.push({
 			current: [],
-			next: [nextWrapper],
-			meta: { mergeNodes: arrayFrom(domNode.childNodes) }
+			next: [renderResult],
+			meta: { mergeNodes: arrayFrom(domNode.childNodes), parent: { depth: 0, domNode, node: v('fake') } }
 		});
 		_runProcessQueue();
 		_mountOptions.merge = false;
@@ -925,22 +890,31 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		}
 	}
 
-	function registerDistinguishableCallback(childNodes: DNodeWrapper[], index: number) {
-		_afterRenderCallbacks.push(() => {
-			const parentWNodeWrapper = findParentWNodeWrapper(childNodes[index]);
-			checkDistinguishable(childNodes, index, parentWNodeWrapper);
-		});
-	}
+	// function registerDistinguishableCallback(childNodes: DNodeWrapper[], index: number) {
+	// 	_afterRenderCallbacks.push(() => {
+	// 		const parentWNodeWrapper = findParentWNodeWrapper(childNodes[index]);
+	// 		checkDistinguishable(childNodes, index, parentWNodeWrapper);
+	// 	});
+	// }
 
-	function _process(current: DNodeWrapper[], next: DNodeWrapper[], meta: ProcessMeta = {}): void {
-		let { mergeNodes = [], oldIndex = 0, newIndex = 0 } = meta;
+	function _process(current: SpecialDNode[], next: SpecialDNode[], meta: ProcessMeta = {}): void {
+		let { mergeNodes = [], oldIndex = 0, newIndex = 0, parent, previous } = meta;
 		const currentLength = current.length;
 		const nextLength = next.length;
 		const hasPreviousSiblings = currentLength > 1 || (currentLength > 0 && currentLength < nextLength);
 		const instructions: Instruction[] = [];
+		let currentParent: any;
+		let currentWrapper: any;
+		let nextWrapper: any;
 		if (newIndex < nextLength) {
-			let currentWrapper = oldIndex < currentLength ? current[oldIndex] : undefined;
-			const nextWrapper = next[newIndex];
+			let currentNode = oldIndex < currentLength ? current[oldIndex] : undefined;
+			if (currentNode) {
+				currentWrapper = _nodeToWrapperMap.get(currentNode);
+			}
+			const nextNode = next[newIndex];
+			currentParent = currentWrapper ? _parentWrapperMap.get(currentWrapper) : undefined;
+
+			nextWrapper = renderedToWrapper(nextNode, parent, currentParent, previous);
 			nextWrapper.hasPreviousSiblings = hasPreviousSiblings;
 
 			_processMergeNodes(nextWrapper, mergeNodes);
@@ -952,32 +926,39 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 					nextWrapper.inserted = currentWrapper.inserted;
 				}
 				instructions.push({ current: currentWrapper, next: nextWrapper });
-			} else if (!currentWrapper || findIndexOfChild(current, nextWrapper, oldIndex + 1) === -1) {
-				has('dojo-debug') && current.length && registerDistinguishableCallback(next, newIndex);
+				previous = nextWrapper;
+			} else if (
+				!currentWrapper ||
+				findIndexOfChild(current, nextWrapper, oldIndex + 1, _nodeToWrapperMap) === -1
+			) {
+				// has('dojo-debug') && current.length && registerDistinguishableCallback(next, newIndex);
 				instructions.push({ current: undefined, next: nextWrapper });
+				previous = nextWrapper;
 				newIndex++;
-			} else if (findIndexOfChild(next, currentWrapper, newIndex + 1) === -1) {
-				has('dojo-debug') && registerDistinguishableCallback(current, oldIndex);
+			} else if (findIndexOfChild(next, currentWrapper, newIndex + 1, _nodeToWrapperMap) === -1) {
+				// has('dojo-debug') && registerDistinguishableCallback(current, oldIndex);
 				instructions.push({ current: currentWrapper, next: undefined });
 				oldIndex++;
 			} else {
-				has('dojo-debug') && registerDistinguishableCallback(next, newIndex);
-				has('dojo-debug') && registerDistinguishableCallback(current, oldIndex);
+				// has('dojo-debug') && registerDistinguishableCallback(next, newIndex);
+				// has('dojo-debug') && registerDistinguishableCallback(current, oldIndex);
 				instructions.push({ current: currentWrapper, next: undefined });
 				instructions.push({ current: undefined, next: nextWrapper });
+				previous = nextWrapper;
 				oldIndex++;
 				newIndex++;
 			}
 		}
 
 		if (newIndex < nextLength) {
-			_processQueue.push({ current, next, meta: { mergeNodes, oldIndex, newIndex } });
+			_processQueue.push({ current, next, meta: { mergeNodes, oldIndex, newIndex, previous, parent } });
 		}
 
 		if (currentLength > oldIndex && newIndex >= nextLength) {
 			for (let i = oldIndex; i < currentLength; i++) {
-				has('dojo-debug') && registerDistinguishableCallback(current, i);
-				instructions.push({ current: current[i], next: undefined });
+				let currentWrapper = current[i] ? _nodeToWrapperMap.get(current[i]) : undefined;
+				// has('dojo-debug') && registerDistinguishableCallback(current, i);
+				instructions.push({ current: currentWrapper, next: undefined });
 			}
 		}
 
@@ -1042,7 +1023,7 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		instanceData.rendering = false;
 		if (rendered) {
 			rendered = Array.isArray(rendered) ? rendered : [rendered];
-			next.childrenWrappers = renderedToWrapper(rendered, next, null);
+			next.rendered = rendered;
 		}
 		if (next.instance) {
 			_instanceToWrapperMap.set(next.instance, next);
@@ -1051,7 +1032,7 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 			}
 		}
 		return {
-			item: { next: next.childrenWrappers, meta: { mergeNodes: next.mergeNodes } },
+			item: { next: next.rendered, meta: { mergeNodes: next.mergeNodes, parent: next } },
 			widget: { type: 'attach', instance, attached: true }
 		};
 	}
@@ -1075,15 +1056,16 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 			instanceData.rendering = false;
 			if (rendered) {
 				rendered = Array.isArray(rendered) ? rendered : [rendered];
-				next.childrenWrappers = renderedToWrapper(rendered, next, current);
+				next.rendered = rendered;
 			}
 			return {
-				item: { current: current.childrenWrappers, next: next.childrenWrappers, meta: {} },
+				item: { current: current.rendered, next: next.rendered, meta: { parent: next } },
 				widget: { type: 'attach', instance, attached: false }
 			};
 		}
 		instanceData.rendering = false;
-		next.childrenWrappers = current.childrenWrappers;
+		// next.childrenWrappers = current.childrenWrappers;
+		next.rendered = current.rendered;
 		return {
 			widget: { type: 'attach', instance, attached: false }
 		};
@@ -1096,7 +1078,7 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		_instanceToWrapperMap.delete(current.instance!);
 
 		return {
-			item: { current: current.childrenWrappers, meta: {} },
+			item: { current: current.rendered, meta: {} },
 			widget: { type: 'detach', current }
 		};
 	}
@@ -1129,7 +1111,8 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		}
 		if (next.domNode) {
 			if (next.node.children) {
-				next.childrenWrappers = renderedToWrapper(next.node.children, next, null);
+				// next.childrenWrappers = renderedToWrapper(next.node.children, next, null);
+				next.rendered = next.node.children as SpecialDNode[];
 			}
 		}
 		const parentWNodeWrapper = findParentWNodeWrapper(next);
@@ -1141,9 +1124,9 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 			parentDomNode: findParentDomNode(next)!,
 			type: 'create'
 		};
-		if (next.childrenWrappers) {
+		if (next.rendered) {
 			return {
-				item: { current: [], next: next.childrenWrappers, meta: { mergeNodes } },
+				item: { current: [], next: next.rendered, meta: { mergeNodes, parent: next } },
 				dom
 			};
 		}
@@ -1159,11 +1142,10 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 			parentDomNode!.replaceChild(updatedTextNode, next.domNode!);
 			next.domNode = updatedTextNode;
 		} else if (next.node.children) {
-			const children = renderedToWrapper(next.node.children, next, current);
-			next.childrenWrappers = children;
+			next.rendered = next.node.children as SpecialDNode[];
 		}
 		return {
-			item: { current: current.childrenWrappers, next: next.childrenWrappers, meta: {} },
+			item: { current: current.rendered, next: next.rendered, meta: { parent: next } },
 			dom: { type: 'update', next, current }
 		};
 	}
@@ -1174,12 +1156,12 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		current.node.bind = undefined;
 		if (current.hasAnimations) {
 			return {
-				item: { current: current.childrenWrappers, meta: {} },
+				item: { current: current.rendered, meta: {} },
 				dom: { type: 'delete', current }
 			};
 		}
 
-		if (current.childrenWrappers) {
+		if (current.rendered) {
 			_afterRenderCallbacks.push(() => {
 				let wrappers = current.childrenWrappers || [];
 				let wrapper: DNodeWrapper | undefined;
