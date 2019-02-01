@@ -387,6 +387,10 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 	let _deferredRenderCallbacks: Function[] = [];
 	let parentInvalidate: () => void;
 	let _allMergedNodes: Node[] = [];
+	let _mountWrapper: any = undefined;
+	let AppWidget = wrapNodes(renderer);
+	let suspended = false;
+	let suspendedRun = false;
 
 	function nodeOperation(
 		propName: string,
@@ -728,8 +732,9 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 
 	function mount(mountOptions: Partial<MountOptions> = {}) {
 		_mountOptions = { ..._mountOptions, ...mountOptions };
+		_allMergedNodes = [];
 		const { domNode } = _mountOptions;
-		const renderResult = w(wrapNodes(renderer), {});
+		const renderResult = w(AppWidget, { key: 'parent' });
 		const nextWrapper = {
 			node: renderResult,
 			order: 0,
@@ -737,19 +742,25 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		};
 		_parentWrapperMap.set(nextWrapper, { depth: 0, order: 0, domNode, node: v('fake') });
 		_processQueue.push({
-			current: [],
+			current: _mountWrapper ? [_mountWrapper] : [],
 			next: [nextWrapper],
 			meta: { mergeNodes: arrayFrom(domNode.childNodes) }
 		});
 		_runProcessQueue();
-		let mergedNode: Node | undefined;
-		while ((mergedNode = _allMergedNodes.pop())) {
-			mergedNode.parentNode && mergedNode.parentNode.removeChild(mergedNode);
+		suspendedRun = false;
+		if (!suspended) {
+			_mountWrapper = undefined;
+			_runDomInstructionQueue();
+			let mergedNode: Node | undefined;
+			while ((mergedNode = _allMergedNodes.pop())) {
+				mergedNode.parentNode && mergedNode.parentNode.removeChild(mergedNode);
+			}
+			_mountOptions.merge = false;
+			_insertBeforeMap = undefined;
+			_runCallbacks();
+		} else {
+			_mountWrapper = nextWrapper;
 		}
-		_runDomInstructionQueue();
-		_mountOptions.merge = false;
-		_insertBeforeMap = undefined;
-		_runCallbacks();
 	}
 
 	function invalidate() {
@@ -824,6 +835,10 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 			} else {
 				const { current, next, meta } = item;
 				_process(current || EMPTY_ARRAY, next || EMPTY_ARRAY, meta);
+				if (suspended) {
+					console.log('SUSPENDED');
+					break;
+				}
 			}
 		}
 	}
@@ -956,9 +971,9 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		const nextLength = next.length;
 		const hasPreviousSiblings = currentLength > 1 || (currentLength > 0 && currentLength < nextLength);
 		const instructions: Instruction[] = [];
+		const nextWrapper = next[newIndex];
 		if (newIndex < nextLength) {
 			let currentWrapper = oldIndex < currentLength ? current[oldIndex] : undefined;
-			const nextWrapper = next[newIndex];
 			nextWrapper.hasPreviousSiblings = hasPreviousSiblings;
 
 			_processMergeNodes(nextWrapper, mergeNodes);
@@ -998,16 +1013,20 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 				instructions.push({ current: current[i], next: undefined });
 			}
 		}
-
 		for (let i = 0; i < instructions.length; i++) {
-			const { item, dom, widget } = _processOne(instructions[i]);
+			const result = _processOne(instructions[i]);
+			if (!result) {
+				suspended = true;
+				break;
+			}
+			const { item, dom, widget } = result;
 			widget && _processQueue.push(widget);
 			item && _processQueue.push(item);
 			dom && _applicationQueue.push(dom);
 		}
 	}
 
-	function _processOne({ current, next }: Instruction): ProcessResult {
+	function _processOne({ current, next }: Instruction): ProcessResult | false {
 		if (current !== next) {
 			if (!current && next) {
 				if (isVNodeWrapper(next)) {
@@ -1032,12 +1051,15 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		return {};
 	}
 
-	function _createWidget({ next }: CreateWidgetInstruction): ProcessResult {
+	function _createWidget({ next }: CreateWidgetInstruction): ProcessResult | false {
 		let {
 			node: { widgetConstructor }
 		} = next;
 		let { registry } = _mountOptions;
 		if (!isWidgetBaseConstructor(widgetConstructor)) {
+			if (next.mergeNodes && next.mergeNodes.length) {
+				return false;
+			}
 			return {};
 		}
 		const instance = new widgetConstructor() as WidgetBase;
@@ -1046,10 +1068,16 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		}
 		const instanceData = widgetInstanceMap.get(instance)!;
 		instanceData.invalidate = () => {
-			instanceData.dirty = true;
-			if (!instanceData.rendering && _instanceToWrapperMap.has(instance)) {
-				_invalidationQueue.push({ instance, depth: next.depth, order: next.order });
-				_schedule();
+			if (!instanceData.rendering && suspended) {
+				suspended = false;
+				suspendedRun = true;
+				mount();
+			} else {
+				instanceData.dirty = true;
+				if (!instanceData.rendering && _instanceToWrapperMap.has(instance)) {
+					_invalidationQueue.push({ instance, depth: next.depth, order: next.order });
+					_schedule();
+				}
 			}
 		};
 		instanceData.rendering = true;
@@ -1088,7 +1116,7 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		instance!.__setProperties__(next.node.properties, next.node.bind);
 		instance!.__setChildren__(next.node.children);
 		_instanceToWrapperMap.set(next.instance!, next);
-		if (instanceData.dirty) {
+		if (instanceData.dirty || suspendedRun) {
 			let rendered = instance!.__render__();
 			instanceData.rendering = false;
 			if (rendered) {
@@ -1096,7 +1124,11 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 				next.childrenWrappers = renderedToWrapper(rendered, next, current);
 			}
 			return {
-				item: { current: current.childrenWrappers, next: next.childrenWrappers, meta: {} },
+				item: {
+					current: current.childrenWrappers,
+					next: next.childrenWrappers,
+					meta: { mergeNodes: next.mergeNodes }
+				},
 				widget: { type: 'attach', instance, attached: false }
 			};
 		}
@@ -1175,9 +1207,17 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 	}
 
 	function _updateDom({ current, next }: UpdateDomInstruction): ProcessResult {
+		let mergeNodes: Node[] = [];
 		const parentDomNode = findParentDomNode(current);
 		next.domNode = current.domNode;
 		next.namespace = current.namespace;
+		next.merged = current.merged;
+
+		if (_mountOptions.merge || suspendedRun) {
+			mergeNodes = arrayFrom(next.domNode!.childNodes);
+			_allMergedNodes = [..._allMergedNodes, ...mergeNodes];
+		}
+
 		if (next.node.text && next.node.text !== current.node.text) {
 			const updatedTextNode = parentDomNode!.ownerDocument.createTextNode(next.node.text!);
 			parentDomNode!.replaceChild(updatedTextNode, next.domNode!);
@@ -1187,7 +1227,7 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 			next.childrenWrappers = children;
 		}
 		return {
-			item: { current: current.childrenWrappers, next: next.childrenWrappers, meta: {} },
+			item: { current: current.childrenWrappers, next: next.childrenWrappers, meta: { mergeNodes } },
 			dom: { type: 'update', next, current }
 		};
 	}
