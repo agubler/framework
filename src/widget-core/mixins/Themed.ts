@@ -1,6 +1,6 @@
+import Map from '../../shim/Map';
 import { Constructor, WidgetProperties, SupportedClassName } from './../interfaces';
 import { Registry } from './../Registry';
-import { Injector } from './../Injector';
 import { inject } from './../decorators/inject';
 import { WidgetBase } from './../WidgetBase';
 import { handleDecorator } from './../decorators/handleDecorator';
@@ -79,6 +79,68 @@ function createThemeClassesLookup(classes: ClassNames[]): ClassNames {
 	);
 }
 
+export interface ThemeMap {
+	[index: string]: Theme;
+}
+
+export interface ThemeInjector {
+	getThemes(): string[];
+	getCurrentTheme(): string;
+	setTheme(name: string, theme?: Theme): void;
+	get(): Theme;
+}
+
+export function themeInjector(theme: Theme, invalidator: () => void, themes?: ThemeMap): ThemeInjector {
+	let defaultThemeExists = true;
+	let currentTheme: Theme = theme;
+	let currentThemeName = 'default';
+	let themeMap = new Map();
+	let themeNames: string[] = [];
+
+	if (themes) {
+		const themeKeys = Object.keys(themeMap);
+		for (let i = 0; i < themeKeys.length; i++) {
+			if (theme === themes[themeKeys[i]]) {
+				currentThemeName = themeKeys[i];
+				defaultThemeExists = true;
+			}
+			themeMap.set(themeKeys[i], themes[themeKeys[i]]);
+			themeNames.push(themeKeys[i]);
+		}
+	}
+	if (!defaultThemeExists) {
+		themeMap.set('default', theme);
+		themeNames.push('default');
+	}
+
+	return {
+		getCurrentTheme() {
+			return currentThemeName;
+		},
+		getThemes() {
+			return themeNames;
+		},
+		setTheme(name: string, theme?: Theme) {
+			if (theme) {
+				themeMap.set(name, theme);
+				themeNames.push(name);
+				currentTheme = theme;
+				currentThemeName = name;
+			} else {
+				const theme = themeMap.get(name);
+				if (theme) {
+					currentTheme = theme;
+					currentThemeName = name;
+				}
+			}
+			invalidator();
+		},
+		get() {
+			return currentTheme;
+		}
+	};
+}
+
 /**
  * Convenience function that is given a theme and an optional registry, the theme
  * injector is defined against the registry, returning the theme.
@@ -89,13 +151,13 @@ function createThemeClassesLookup(classes: ClassNames[]): ClassNames {
  *
  * @returns the theme injector used to set the theme
  */
-export function registerThemeInjector(theme: any, themeRegistry: Registry): Injector {
-	const themeInjector = new Injector(theme);
+export function registerThemeInjector(theme: any, themeRegistry: Registry): ThemeInjector {
+	let injector: ThemeInjector;
 	themeRegistry.defineInjector(INJECTED_THEME_KEY, (invalidator) => {
-		themeInjector.setInvalidator(invalidator);
-		return () => themeInjector.get();
+		injector = themeInjector(theme, invalidator);
+		return () => injector.get();
 	});
-	return themeInjector;
+	return injector!;
 }
 
 /**
