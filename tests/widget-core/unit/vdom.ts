@@ -7,7 +7,7 @@ import { createResolvers } from './../support/util';
 import sendEvent from '../support/sendEvent';
 
 import { renderer } from '../../../src/widget-core/vdom';
-import { v, w, dom as d, VNODE } from '../../../src/widget-core/d';
+import { v, w, dom as d, VNODE, portal } from '../../../src/widget-core/d';
 import { VNode, DNode, DomVNode } from '../../../src/widget-core/interfaces';
 import { WidgetBase, widgetInstanceMap } from '../../../src/widget-core/WidgetBase';
 import Registry from '../../../src/widget-core/Registry';
@@ -3513,6 +3513,54 @@ jsdomDescribe('vdom', () => {
 			meta.setRenderResult(vnode);
 			assert.strictEqual('qux', root.getAttribute('foo'));
 			assert.strictEqual(3, root.bar);
+		});
+		it('other', () => {
+			const fakeBody = document.createElement('body');
+
+			let f: any;
+			class Foo extends WidgetBase {
+				private _el: HTMLDivElement;
+				private show = true;
+				constructor() {
+					super();
+					this._el = document.createElement('div');
+					fakeBody.appendChild(this._el);
+					f = () => {
+						this.show = !this.show;
+						this.invalidate();
+					};
+				}
+				render() {
+					return v('div', [
+						this.show ? 'hello' : 'goodbye',
+						this.show &&
+							portal(
+								{
+									node: this._el,
+									props: { styles: { position: 'absolute', top: '50%', left: '50%' } }
+								},
+								['1', '2', '3', '4', `5`]
+							)
+					]);
+				}
+			}
+
+			const r = renderer(() => w(Foo, {}));
+			r.mount({ domNode: fakeBody, sync: true });
+			assert.strictEqual(
+				fakeBody.outerHTML,
+				'<body><div style="position: absolute; top: 50%; left: 50%;">12345</div><div>hello</div></body>'
+			);
+			f();
+			assert.strictEqual(
+				fakeBody.outerHTML,
+				'<body><div style="position: absolute; top: 50%; left: 50%;"></div><div>goodbye</div></body>'
+			);
+			f();
+			assert.strictEqual(
+				fakeBody.outerHTML,
+				'<body><div style="position: absolute; top: 50%; left: 50%;">12345</div><div>hello</div></body>'
+			);
 		});
 		it('Should move a text node to the parent VNode dom node', () => {
 			const append = document.createElement('div');

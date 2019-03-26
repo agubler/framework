@@ -15,7 +15,7 @@ import {
 	Constructor
 } from './interfaces';
 import transitionStrategy from './animations/cssTransitions';
-import { isVNode, isWNode, WNODE, v, isDomVNode, w, VNODE } from './d';
+import { isVNode, isWNode, WNODE, v, isDomVNode, w, VNODE, isPortalVNode } from './d';
 import { Registry, isWidgetBaseConstructor } from './Registry';
 import { WidgetBase, widgetInstanceMap } from './WidgetBase';
 
@@ -26,6 +26,8 @@ export interface BaseNodeWrapper {
 	depth: number;
 	order: number;
 	requiresInsertBefore?: boolean;
+	isPortal?: boolean;
+	hasParentPortal?: boolean;
 	hasPreviousSiblings?: boolean;
 	hasParentWNode?: boolean;
 	namespace?: string;
@@ -546,6 +548,8 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 				node: renderedItem,
 				depth: depth + 1,
 				order: i,
+				isPortal: isPortalVNode(renderedItem),
+				hasParentPortal: parent.isPortal || parent.hasParentPortal,
 				requiresInsertBefore: insertBefore,
 				hasParentWNode,
 				namespace: namespace
@@ -566,8 +570,8 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 					}
 				}
 			}
-			if (isWNode(renderedItem)) {
-				resolveRegistryItem(wrapper as WNodeWrapper, (parent as any).instance);
+			if (isWNodeWrapper(wrapper)) {
+				resolveRegistryItem(wrapper, (parent as any).instance);
 			}
 
 			_parentWrapperMap.set(wrapper, parent);
@@ -933,7 +937,9 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 					} else if (_insertBeforeMap) {
 						insertBefore = _insertBeforeMap.get(next);
 					}
-					parentDomNode.insertBefore(domNode!, insertBefore);
+					if ((domNode && !domNode.parentNode) || !isPortalVNode(next.node)) {
+						parentDomNode.insertBefore(domNode!, insertBefore);
+					}
 					if (isDomVNode(next.node) && next.node.onAttach) {
 						next.node.onAttach();
 					}
@@ -1294,6 +1300,11 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 	function _removeDom({ current }: RemoveDomInstruction): ProcessResult {
 		_wrapperSiblingMap.delete(current);
 		_parentWrapperMap.delete(current);
+		if (current.isPortal) {
+			return {
+				item: { current: current.childrenWrappers, meta: {} }
+			};
+		}
 		if (current.hasAnimations) {
 			return {
 				item: { current: current.childrenWrappers, meta: {} },
@@ -1317,6 +1328,9 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 							instanceData && instanceData.onDetach();
 						}
 						wrapper.instance = undefined;
+					}
+					if (isVNodeWrapper(wrapper) && wrapper.hasParentPortal) {
+						wrapper.domNode!.parentNode!.removeChild(wrapper.domNode!);
 					}
 					_wrapperSiblingMap.delete(wrapper);
 					_parentWrapperMap.delete(wrapper);

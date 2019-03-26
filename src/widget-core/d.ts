@@ -30,6 +30,8 @@ export const VNODE = '__VNODE_TYPE';
  */
 export const DOMVNODE = '__DOMVNODE_TYPE';
 
+export const PORTALVNODE = '__PORTALVNODE_TYPE';
+
 /**
  * Helper function that returns true if the `DNode` is a `WNode` using the `type` property
  */
@@ -44,7 +46,10 @@ export function isWNode<W extends WidgetBaseInterface = DefaultWidgetBaseInterfa
  */
 export function isVNode(child: DNode): child is VNode {
 	return Boolean(
-		child && child !== true && typeof child !== 'string' && (child.type === VNODE || child.type === DOMVNODE)
+		child &&
+			child !== true &&
+			typeof child !== 'string' &&
+			(child.type === VNODE || child.type === DOMVNODE || child.type === PORTALVNODE)
 	);
 }
 
@@ -53,6 +58,10 @@ export function isVNode(child: DNode): child is VNode {
  */
 export function isDomVNode(child: DNode): child is DomVNode {
 	return Boolean(child && child !== true && typeof child !== 'string' && child.type === DOMVNODE);
+}
+
+export function isPortalVNode(child: DNode): child is DomVNode {
+	return Boolean(child && child !== true && typeof child !== 'string' && child.type === PORTALVNODE);
 }
 
 export function isElementNode(value: any): value is Element {
@@ -232,6 +241,24 @@ export function dom(
 		events: on,
 		children,
 		type: DOMVNODE,
+		domNode: node,
+		text: isElementNode(node) ? undefined : node.data,
+		diffType,
+		onAttach
+	};
+}
+
+export function portal(
+	{ node, attrs = {}, props = {}, on = {}, diffType = 'none', onAttach }: DomOptions,
+	children?: DNode[]
+): DomVNode {
+	return {
+		tag: isElementNode(node) ? node.tagName.toLowerCase() : '',
+		properties: props,
+		attributes: attrs,
+		events: on,
+		children,
+		type: PORTALVNODE,
 		domNode: node,
 		text: isElementNode(node) ? undefined : node.data,
 		diffType,
