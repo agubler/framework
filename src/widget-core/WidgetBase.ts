@@ -14,7 +14,8 @@ import {
 	WidgetBaseInterface,
 	WidgetProperties,
 	MetaBase,
-	RenderResult
+	RenderResult,
+	WidgetFunction
 } from './interfaces';
 import RegistryHandler from './RegistryHandler';
 import NodeHandler from './NodeHandler';
@@ -465,6 +466,11 @@ export class WidgetBase<P = WidgetProperties, C extends DNode = DNode> implement
 			}
 		}
 	}
+}
+
+export function widget<P = WidgetProperties, C = DNode[]>(widget: WidgetFunction<P, C>, isStatic = false) {
+	widget.isStatic = isStatic;
+	return widget;
 }
 
 export default WidgetBase;
