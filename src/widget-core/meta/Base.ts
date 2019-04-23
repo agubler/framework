@@ -1,6 +1,6 @@
 import { Destroyable } from '../../core/Destroyable';
 import Set from '../../shim/Set';
-import { WidgetMetaBase, WidgetMetaProperties, NodeHandlerInterface, WidgetBaseInterface } from '../interfaces';
+import { WidgetMetaBase, WidgetMetaProperties, NodeHandlerInterface } from '../interfaces';
 
 export class Base extends Destroyable implements WidgetMetaBase {
 	private _invalidate: () => void;
@@ -8,16 +8,11 @@ export class Base extends Destroyable implements WidgetMetaBase {
 
 	private _requestedNodeKeys = new Set<string | number>();
 
-	protected _bind: WidgetBaseInterface | undefined;
-
 	constructor(properties: WidgetMetaProperties) {
 		super();
 
 		this._invalidate = properties.invalidate;
 		this.nodeHandler = properties.nodeHandler;
-		if (properties.bind) {
-			this._bind = properties.bind;
-		}
 	}
 
 	public has(key: string | number): boolean {

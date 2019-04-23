@@ -5,14 +5,12 @@ import global from '../../../../src/shim/global';
 import * as sinon from 'sinon';
 import Focus from '../../../../src/widget-core/meta/Focus';
 import NodeHandler from '../../../../src/widget-core/NodeHandler';
-import WidgetBase from '../../../../src/widget-core/WidgetBase';
 
 jsdomDescribe('meta - Focus', () => {
 	const defaultFocus = {
 		active: false,
 		containsFocus: false
 	};
-	let bindInstance: WidgetBase;
 	let element: HTMLElement;
 	let activeGetter: any;
 	let focus: any;
@@ -22,7 +20,6 @@ jsdomDescribe('meta - Focus', () => {
 
 	before(() => {
 		isNode = typeof global.fakeActiveElement === 'function';
-		bindInstance = new WidgetBase();
 	});
 
 	beforeEach((test) => {
@@ -30,9 +27,8 @@ jsdomDescribe('meta - Focus', () => {
 		nodeHandler = new NodeHandler();
 		focus = new Focus({
 			invalidate: invalidateStub,
-			nodeHandler,
-			bind: bindInstance
-		});
+			nodeHandler
+		} as any);
 
 		element = document.createElement('button');
 		document.body.appendChild(element);

@@ -9,13 +9,8 @@ import { WidgetBase } from '../../../../src/widget-core/WidgetBase';
 import { renderer } from '../../../../src/widget-core/vdom';
 
 const resolvers = createResolvers();
-let bindInstance: WidgetBase;
 
 registerSuite('meta base', {
-	before() {
-		bindInstance = new WidgetBase();
-	},
-
 	beforeEach() {
 		resolvers.stub();
 	},
@@ -30,9 +25,8 @@ registerSuite('meta base', {
 			nodeHandler.add(element, 'foo');
 			const meta = new MetaBase({
 				invalidate: () => {},
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			assert.isTrue(meta.has('foo'));
 			assert.isFalse(meta.has('bar'));
@@ -51,9 +45,8 @@ registerSuite('meta base', {
 
 			const meta = new MyMeta({
 				invalidate,
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			const node = meta.callGetNode('foo');
 			assert.equal(node, element);
@@ -71,9 +64,8 @@ registerSuite('meta base', {
 
 			const meta = new MyMeta({
 				invalidate,
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			meta.callGetNode('foo');
 			assert.isTrue(onSpy.calledOnce);
@@ -92,9 +84,8 @@ registerSuite('meta base', {
 
 			const meta = new MyMeta({
 				invalidate,
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			meta.callGetNode('foo');
 			assert.isTrue(onSpy.calledOnce);
@@ -125,9 +116,8 @@ registerSuite('meta base', {
 
 			const meta = new MyMeta({
 				invalidate,
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			meta.callGetNode('foo');
 			assert.isTrue(onSpy.calledOnce);
@@ -149,9 +139,8 @@ registerSuite('meta base', {
 
 			const meta = new MyMeta({
 				invalidate,
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			meta.callInvalidate();
 			resolvers.resolve();

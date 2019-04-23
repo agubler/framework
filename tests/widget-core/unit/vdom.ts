@@ -1093,20 +1093,23 @@ jsdomDescribe('vdom', () => {
 				}
 			}
 
-			let setProperties: any;
+			let changeWidget: any;
 			class Baz extends WidgetBase<any> {
+				private _widget = 'default';
 				constructor() {
 					super();
-					setProperties = this.__setProperties__.bind(this);
+					changeWidget = (widget: string) => {
+						this._widget = widget;
+						this.invalidate();
+					};
 				}
 				render() {
-					const { widget = 'default' } = this.properties;
 					return v('div', [
 						v('div', { key: '1' }, ['first']),
-						w(widget, { key: '2' }),
-						w(widget, { key: '3' }),
+						w(this._widget, { key: '2' }),
+						w(this._widget, { key: '3' }),
 						v('div', { key: '4' }, ['second']),
-						w(widget, { key: '5' })
+						w(this._widget, { key: '5' })
 					]);
 				}
 			}
@@ -1121,25 +1124,25 @@ jsdomDescribe('vdom', () => {
 			const root: any = div.childNodes[0] as Element;
 			assert.strictEqual(root.childNodes[0].childNodes[0].data, 'first');
 			assert.strictEqual(root.childNodes[1].childNodes[0].data, 'second');
-			setProperties({ widget: 'other' });
+			changeWidget('other');
 			assert.strictEqual(root.childNodes[0].childNodes[0].data, 'first');
 			assert.strictEqual(root.childNodes[1].childNodes[0].data, 'second');
-			setProperties({ widget: 'foo' });
+			changeWidget('foo');
 			assert.strictEqual(root.childNodes[0].childNodes[0].data, 'first');
 			assert.strictEqual(root.childNodes[1].childNodes[0].data, 'foo');
 			assert.strictEqual(root.childNodes[2].childNodes[0].data, 'foo');
 			assert.strictEqual(root.childNodes[3].childNodes[0].data, 'second');
 			assert.strictEqual(root.childNodes[4].childNodes[0].data, 'foo');
-			setProperties({ widget: 'bar' });
+			changeWidget('bar');
 			assert.strictEqual(root.childNodes[0].childNodes[0].data, 'first');
 			assert.strictEqual(root.childNodes[1].childNodes[0].data, 'bar');
 			assert.strictEqual(root.childNodes[2].childNodes[0].data, 'bar');
 			assert.strictEqual(root.childNodes[3].childNodes[0].data, 'second');
 			assert.strictEqual(root.childNodes[4].childNodes[0].data, 'bar');
-			setProperties({ widget: 'other' });
+			changeWidget('other');
 			assert.strictEqual(root.childNodes[0].childNodes[0].data, 'first');
 			assert.strictEqual(root.childNodes[1].childNodes[0].data, 'second');
-			setProperties({ widget: 'bar' });
+			changeWidget('bar');
 			assert.strictEqual(root.childNodes[0].childNodes[0].data, 'first');
 			assert.strictEqual(root.childNodes[1].childNodes[0].data, 'bar');
 			assert.strictEqual(root.childNodes[2].childNodes[0].data, 'bar');
@@ -5645,24 +5648,34 @@ jsdomDescribe('vdom', () => {
 	});
 
 	it('i18n Mixin', () => {
-		let setProperties: any;
+		let changeRtl: any;
 		class MyWidget extends I18nMixin(WidgetBase) {
-			constructor() {
-				super();
-				setProperties = this.__setProperties__.bind(this);
-			}
 			render() {
 				return v('span');
 			}
 		}
-		const r = renderer(() => w(MyWidget, {}));
+
+		class App extends WidgetBase {
+			private _rtl: boolean | undefined = undefined;
+			constructor() {
+				super();
+				changeRtl = (rtl?: boolean) => {
+					this._rtl = rtl;
+					this.invalidate();
+				};
+			}
+			render() {
+				return w(MyWidget, { rtl: this._rtl });
+			}
+		}
+		const r = renderer(() => w(App, {}));
 		const div = document.createElement('div');
 		r.mount({ domNode: div, sync: true });
 		const root = div.childNodes[0] as HTMLElement;
 		assert.strictEqual(root.dir, '');
-		setProperties({ rtl: true });
+		changeRtl(true);
 		assert.strictEqual(root.dir, 'rtl');
-		setProperties({ rtl: false });
+		changeRtl(false);
 		assert.strictEqual(root.dir, 'ltr');
 	});
 });

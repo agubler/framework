@@ -14,7 +14,10 @@ import {
 	WidgetBaseInterface,
 	WidgetProperties,
 	MetaBase,
-	RenderResult
+	RenderResult,
+	WidgetFunction,
+	UseConstructor,
+	UseBase
 } from './interfaces';
 import RegistryHandler from './RegistryHandler';
 import NodeHandler from './NodeHandler';
@@ -107,7 +110,7 @@ export class WidgetBase<P = WidgetProperties, C extends DNode = DNode> implement
 
 	private _registry: RegistryHandler = new RegistryHandler();
 
-	private _metaMap: Map<WidgetMetaConstructor<any>, MetaBase> | undefined;
+	private _useMap: Map<UseConstructor<any> | WidgetMetaConstructor<any>, UseBase | MetaBase> | undefined;
 
 	private _boundRenderFunc: Render;
 
@@ -156,18 +159,39 @@ export class WidgetBase<P = WidgetProperties, C extends DNode = DNode> implement
 	}
 
 	protected meta<T extends MetaBase>(MetaType: WidgetMetaConstructor<T>): T {
-		if (this._metaMap === undefined) {
-			this._metaMap = new Map<WidgetMetaConstructor<any>, MetaBase>();
+		if (this._useMap === undefined) {
+			this._useMap = new Map<WidgetMetaConstructor<any>, MetaBase>();
 		}
-		let cached = this._metaMap.get(MetaType);
+		let cached = this._useMap.get(MetaType);
 		if (!cached) {
 			cached = new MetaType({
 				invalidate: this._boundInvalidate,
 				nodeHandler: this._nodeHandler,
+				registry: this._registry,
+				properties: this._properties,
 				bind: this
 			});
 			this.own(cached);
-			this._metaMap.set(MetaType, cached);
+			this._useMap.set(MetaType, cached);
+		}
+
+		return cached as T;
+	}
+
+	protected use<T extends UseBase>(Use: UseConstructor<T>): T {
+		if (this._useMap === undefined) {
+			this._useMap = new Map<UseConstructor<any>, UseBase>();
+		}
+		let cached = this._useMap.get(Use);
+		if (!cached) {
+			cached = new Use({
+				invalidate: this._boundInvalidate,
+				nodeHandler: this._nodeHandler,
+				registry: this._registry,
+				properties: this._properties
+			});
+			this.own(cached);
+			this._useMap.set(Use, cached);
 		}
 
 		return cached as T;
@@ -436,8 +460,8 @@ export class WidgetBase<P = WidgetProperties, C extends DNode = DNode> implement
 			}, dNode);
 		}
 
-		if (this._metaMap !== undefined) {
-			this._metaMap.forEach((meta) => {
+		if (this._useMap !== undefined) {
+			this._useMap.forEach((meta) => {
 				isDomMeta(meta) && meta.afterRender();
 			});
 		}
@@ -465,6 +489,11 @@ export class WidgetBase<P = WidgetProperties, C extends DNode = DNode> implement
 			}
 		}
 	}
+}
+
+export function widget<P = WidgetProperties, C = DNode[]>(widget: WidgetFunction<P, C>, isStatic = false) {
+	widget.isStatic = isStatic;
+	return widget;
 }
 
 export default WidgetBase;

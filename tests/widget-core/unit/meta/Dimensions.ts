@@ -4,10 +4,8 @@ import global from '../../../../src/shim/global';
 import { stub, spy } from 'sinon';
 import Dimensions from '../../../../src/widget-core/meta/Dimensions';
 import NodeHandler from '../../../../src/widget-core/NodeHandler';
-import WidgetBase from '../../../../src/widget-core/WidgetBase';
 
 let rAF: any;
-let bindInstance: WidgetBase;
 const defaultDimensions = {
 	client: {
 		height: 0,
@@ -47,10 +45,6 @@ function resolveRAF() {
 }
 
 registerSuite('meta - Dimensions', {
-	before() {
-		bindInstance = new WidgetBase();
-	},
-
 	beforeEach() {
 		rAF = stub(global, 'requestAnimationFrame');
 	},
@@ -65,9 +59,8 @@ registerSuite('meta - Dimensions', {
 
 			const dimensions = new Dimensions({
 				invalidate: () => {},
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			assert.deepEqual(dimensions.get('foo'), defaultDimensions);
 		},
@@ -76,9 +69,8 @@ registerSuite('meta - Dimensions', {
 
 			const dimensions = new Dimensions({
 				invalidate: () => {},
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			assert.deepEqual(dimensions.get(1234), defaultDimensions);
 		},
@@ -88,9 +80,8 @@ registerSuite('meta - Dimensions', {
 
 			const dimensions = new Dimensions({
 				invalidate: () => {},
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			dimensions.get('foo');
 			assert.isTrue(onSpy.calledOnce);
@@ -103,9 +94,8 @@ registerSuite('meta - Dimensions', {
 
 			const dimensions = new Dimensions({
 				invalidate: invalidateStub,
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			dimensions.get('foo');
 			assert.isTrue(onSpy.calledOnce);
@@ -150,9 +140,8 @@ registerSuite('meta - Dimensions', {
 
 			const dimensions = new Dimensions({
 				invalidate: () => {},
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			assert.deepEqual(dimensions.get('foo'), {
 				offset: { height: 10, left: 10, top: 10, width: 10 },

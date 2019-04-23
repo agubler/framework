@@ -10,7 +10,8 @@ import {
 	WidgetBaseInterface,
 	ESMDefaultWidgetBase,
 	WidgetBaseConstructorFunction,
-	ESMDefaultWidgetBaseFunction
+	ESMDefaultWidgetBaseFunction,
+	WidgetFunction
 } from './interfaces';
 
 export type RegistryItem =
@@ -89,6 +90,10 @@ export interface RegistryInterface {
  */
 export function isWidgetBaseConstructor<T extends WidgetBaseInterface>(item: any): item is Constructor<T> {
 	return Boolean(item && item._type === WIDGET_BASE_TYPE);
+}
+
+export function isWidget<T extends WidgetBaseInterface>(item: any): item is Constructor<T> | WidgetFunction {
+	return isWidgetBaseConstructor(item) || typeof item === 'function';
 }
 
 export function isWidgetConstructorDefaultExport<T>(item: any): item is ESMDefaultWidgetBase<T> {

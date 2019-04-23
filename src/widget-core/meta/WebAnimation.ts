@@ -92,11 +92,11 @@ export class WebAnimations extends Base {
 		}
 
 		if (onFinish) {
-			player.onfinish = onFinish.bind(this._bind);
+			player.onfinish = onFinish;
 		}
 
 		if (onCancel) {
-			player.oncancel = onCancel.bind(this._bind);
+			player.oncancel = onCancel;
 		}
 	}
 

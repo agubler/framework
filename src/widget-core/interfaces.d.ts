@@ -365,19 +365,19 @@ export type LazyDefine<W extends WidgetBaseInterface = DefaultWidgetBaseInterfac
 	registryItem: LazyWidget<W>;
 };
 
+export interface WidgetFunction<P = WidgetProperties, C = DNode[]> {
+	(options: RenderOptions<P, C>): RenderResult;
+	isStatic?: boolean;
+}
+
 /**
  * Wrapper for `w`
  */
-export interface WNode<W extends WidgetBaseInterface = DefaultWidgetBaseInterface> {
+export interface WNode<W extends WidgetBaseInterface = DefaultWidgetBaseInterface, P = any, C = any[]> {
 	/**
 	 * Constructor to create a widget or string constructor label
 	 */
-	widgetConstructor:
-		| Constructor<W>
-		| RegistryLabel
-		| WidgetBaseConstructorFunction<W>
-		| ESMDefaultWidgetBaseFunction<W>
-		| LazyDefine<W>;
+	widgetConstructor: Constructor<W> | RegistryLabel | LazyDefine<W> | WidgetFunction<P, C>;
 
 	/**
 	 * Properties to set against a widget instance
@@ -486,6 +486,25 @@ export interface WidgetMetaConstructor<T extends MetaBase> {
 	new (properties: WidgetMetaProperties): T;
 }
 
+export interface Invalidate {
+	(): void;
+}
+
+export interface UseOptions {
+	invalidate: Invalidate;
+	nodeHandler: NodeHandlerInterface;
+	registry: RegistryHandler;
+	properties: any;
+}
+
+export interface UseConstructor<T extends UseBase> {
+	new (options: UseOptions): T;
+}
+
+export interface UseBase extends Destroyable {
+	__setProperties__(properties: any): void;
+}
+
 export interface NodeHandlerInterface extends Evented {
 	get(key: string | number): Element | undefined;
 	has(key: string | number): boolean;
@@ -499,12 +518,21 @@ export interface NodeHandlerInterface extends Evented {
  * Properties passed to meta Base constructors
  */
 export interface WidgetMetaProperties {
-	invalidate: () => void;
+	invalidate: Invalidate;
 	nodeHandler: NodeHandlerInterface;
+	registry: RegistryHandler;
+	properties: any;
 	bind: WidgetBaseInterface;
 }
 
 export type RenderResult = DNode<any> | DNode<any>[];
+
+export interface RenderOptions<P = WidgetProperties, C = DNode[]> {
+	use: <T extends UseBase>(UseType: UseConstructor<T>) => T;
+	registry: RegistryHandler;
+	properties: P & WidgetProperties;
+	children: C;
+}
 
 export interface Render {
 	(): DNode | DNode[];

@@ -4,18 +4,12 @@ import { createSandbox, SinonStub } from 'sinon';
 import InputValidity from '../../../../src/widget-core/meta/InputValidity';
 
 import NodeHandler from '../../../../src/widget-core/NodeHandler';
-import WidgetBase from '../../../../src/widget-core/WidgetBase';
 
 const sandbox = createSandbox();
-let bindInstance: WidgetBase;
 let invalidateStub: SinonStub;
 let nodeHandler: NodeHandler;
 
 registerSuite('meta - InputValidity', {
-	async before() {
-		bindInstance = new WidgetBase();
-	},
-
 	beforeEach() {
 		invalidateStub = sandbox.stub();
 		nodeHandler = new NodeHandler();
@@ -30,9 +24,8 @@ registerSuite('meta - InputValidity', {
 			sandbox.stub(nodeHandler, 'get').returns(undefined);
 			const validity = new InputValidity({
 				invalidate: invalidateStub,
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			const { message, valid } = validity.get('test', 'testValue');
 			assert.strictEqual(message, '');
@@ -47,9 +40,8 @@ registerSuite('meta - InputValidity', {
 			});
 			const validity = new InputValidity({
 				invalidate: invalidateStub,
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			const { message, valid } = validity.get('test', 'testValue');
 			assert.strictEqual(message, 'test validation message');
@@ -69,9 +61,8 @@ registerSuite('meta - InputValidity', {
 
 			const validity = new InputValidity({
 				invalidate: invalidateStub,
-				nodeHandler,
-				bind: bindInstance
-			});
+				nodeHandler
+			} as any);
 
 			validity.get('input', 'test2');
 			return new Promise((resolve) => {

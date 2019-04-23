@@ -2,10 +2,7 @@ const { assert } = intern.getPlugin('chai');
 const { describe, it } = intern.getInterface('bdd');
 import * as sinon from 'sinon';
 import NodeHandler from '../../../../src/widget-core/NodeHandler';
-import WidgetBase from '../../../../src/widget-core/WidgetBase';
 import Block from '../../../../src/widget-core/meta/Block';
-
-let bindInstance = new WidgetBase();
 
 describe('Block Meta', () => {
 	it('Should resolve module result when async', () => {
@@ -31,9 +28,8 @@ describe('Block Meta', () => {
 
 		const meta = new Block({
 			invalidate,
-			nodeHandler,
-			bind: bindInstance
-		});
+			nodeHandler
+		} as any);
 
 		const resultOne = meta.run(testModule)('test');
 		const resultTwo = meta.run(testModuleOther)('test');
@@ -61,9 +57,8 @@ describe('Block Meta', () => {
 
 		const meta = new Block({
 			invalidate,
-			nodeHandler,
-			bind: bindInstance
-		});
+			nodeHandler
+		} as any);
 
 		let resultOne = meta.run(testModule)('test');
 		assert.strictEqual(resultOne, 'sync');
@@ -81,9 +76,8 @@ describe('Block Meta', () => {
 
 		const meta = new Block({
 			invalidate,
-			nodeHandler,
-			bind: bindInstance
-		});
+			nodeHandler
+		} as any);
 
 		let result = meta.run(testModule)('test');
 		assert.isUndefined(result);
