@@ -47,7 +47,7 @@ export interface WNodeWrapper extends BaseNodeWrapper {
 
 export interface WidgetMeta {
 	dirty: boolean;
-	invalidator: any;
+	invalidator: (() => void) | undefined;
 	registry: RegistryHandler;
 	nodeHandler: NodeHandler;
 }
@@ -221,7 +221,7 @@ function updateAttributes(
 	}
 }
 
-function diffProperties(current: any, next: any, invalidator: any) {
+function diffProperties(current: any, next: any, invalidator: () => void) {
 	const propertyNames = [...Object.keys(current), ...Object.keys(next)];
 	let diffedProperties = [];
 	for (let i = 0; i < propertyNames.length; i++) {
@@ -847,11 +847,12 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		_mountOptions = { ..._mountOptions, ...mountOptions };
 		const { domNode } = _mountOptions;
 		const renderResult = w(wrapNodes(renderer), {});
-		const nextWrapper: any = {
+		const nextWrapper = {
 			id: wrapperId++,
 			node: renderResult,
 			order: 0,
-			depth: 1
+			depth: 1,
+			properties: {}
 		};
 		_parentWrapperMap.set(nextWrapper, { id: wrapperId++, depth: 0, order: 0, domNode, node: v('fake') });
 		_processQueue.push({
@@ -1028,11 +1029,9 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 				}
 			} else if (item.type === 'attach') {
 				const { instance, attached } = item;
-				if (instance) {
-					const instanceData = widgetInstanceMap.get(instance);
-					instanceData && instanceData.nodeHandler.addRoot();
-					attached && instanceData && instanceData.onAttach();
-				}
+				const instanceData = widgetInstanceMap.get(instance);
+				instanceData && instanceData.nodeHandler.addRoot();
+				attached && instanceData && instanceData.onAttach();
 			} else if (item.type === 'detach') {
 				if (item.current.instance) {
 					const instanceData = widgetInstanceMap.get(item.current.instance);
@@ -1195,8 +1194,8 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 			Constructor = next.registryItem;
 		}
 
-		let rendered: any;
-		let instance: any;
+		let rendered: RenderResult;
+		let instance: WidgetBase | undefined;
 		next.properties = next.node.properties;
 		if (!isWidgetBaseConstructor(Constructor)) {
 			const invalidator = () => {
@@ -1246,14 +1245,17 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 			next.childrenWrappers = renderedToWrapper(rendered, next, null);
 		}
 		_idToWrapperMap.set(next.id, next);
-		if (next.instance) {
+		if (instance) {
 			if (!parentInvalidate && !(next.instance as any).isWNodeWrapper) {
-				parentInvalidate = next.instance.invalidate.bind(next.instance);
+				parentInvalidate = instance.invalidate.bind(next.instance);
 			}
+			return {
+				item: { next: next.childrenWrappers, meta: { mergeNodes: next.mergeNodes } },
+				widget: { type: 'attach', instance, attached: true }
+			};
 		}
 		return {
-			item: { next: next.childrenWrappers, meta: { mergeNodes: next.mergeNodes } },
-			widget: { type: 'attach', instance, attached: true }
+			item: { next: next.childrenWrappers, meta: { mergeNodes: next.mergeNodes } }
 		};
 	}
 
