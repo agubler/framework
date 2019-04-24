@@ -78,10 +78,12 @@ export class RegistryHandler extends Evented<RegistryHandlerEventMap> {
 			if (item) {
 				return item;
 			} else if (registeredLabels.indexOf(label) === -1) {
+				const hasFunctionName = getFunctionName === 'get' ? 'has' : 'hasInjector';
+				const targetRegistry = globalPrecedence ? this.baseRegistry || this._registry : this._registry;
 				const handle = registry.on(label, (event: RegistryEventObject) => {
 					if (
 						event.action === 'loaded' &&
-						(this as any)[getFunctionName](label, globalPrecedence) === event.item
+						(!targetRegistry[hasFunctionName](label) || targetRegistry === registry)
 					) {
 						this.emit({ type: 'invalidate' });
 					}

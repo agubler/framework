@@ -13,8 +13,8 @@ const globalInjector = () => ({});
 const globalInjectorFactory = () => globalInjector;
 
 const registry = new Registry();
-registry.define('foo', GlobalWidget);
-registry.define(foo, GlobalWidget);
+registry.define('foo', () => GlobalWidget);
+registry.define(foo, () => GlobalWidget);
 registry.defineInjector('foo', globalInjectorFactory);
 registry.defineInjector(foo, globalInjectorFactory);
 
@@ -32,8 +32,8 @@ registerSuite('RegistryHandler', {
 			local() {
 				const registryHandler = new RegistryHandler();
 				registryHandler.base = registry;
-				registryHandler.define('bar', LocalWidget);
-				registryHandler.define(bar, LocalWidget);
+				registryHandler.define('bar', () => LocalWidget);
+				registryHandler.define(bar, () => LocalWidget);
 				assert.isTrue(registryHandler.has('bar'));
 				assert.isTrue(registryHandler.has(bar));
 			}
@@ -63,16 +63,16 @@ registerSuite('RegistryHandler', {
 			local() {
 				const registryHandler = new RegistryHandler();
 				registryHandler.base = registry;
-				registryHandler.define('foo', LocalWidget);
-				registryHandler.define(foo, LocalWidget);
+				registryHandler.define('foo', () => LocalWidget);
+				registryHandler.define(foo, () => LocalWidget);
 				assert.equal(registryHandler.get('foo'), LocalWidget);
 				assert.equal(registryHandler.get(foo), LocalWidget);
 			},
 			'with global precedence'() {
 				const registryHandler = new RegistryHandler();
 				registryHandler.base = registry;
-				registryHandler.define('foo', LocalWidget);
-				registryHandler.define(foo, LocalWidget);
+				registryHandler.define('foo', () => LocalWidget);
+				registryHandler.define(foo, () => LocalWidget);
 				assert.equal(registryHandler.get('foo', true), GlobalWidget);
 				assert.equal(registryHandler.get(foo, true), GlobalWidget);
 			},
@@ -88,7 +88,7 @@ registerSuite('RegistryHandler', {
 				registryHandler.get('global');
 				registryHandler.get('global');
 				registryHandler.get('global');
-				registry.define('global', GlobalWidget);
+				registry.define('global', () => GlobalWidget);
 				assert.strictEqual(invalidateCount, 1);
 			},
 			'invalidates when primary registry emits loaded event even when widget is loaded in secondary registry'() {
@@ -102,9 +102,9 @@ registerSuite('RegistryHandler', {
 
 				registryHandler.get('global');
 				registryHandler.get('global');
-				registry.define('global', GlobalWidget);
+				registry.define('global', () => GlobalWidget);
 				assert.strictEqual(invalidateCount, 1);
-				registryHandler.define('global', LocalWidget);
+				registryHandler.define('global', () => LocalWidget);
 				assert.strictEqual(invalidateCount, 2);
 			},
 			'no loaded event listeners once the widget is fully loaded (into primary registry)'() {
@@ -117,7 +117,7 @@ registerSuite('RegistryHandler', {
 				});
 
 				registryHandler.get('global');
-				registryHandler.define('global', LocalWidget);
+				registryHandler.define('global', () => LocalWidget);
 				assert.strictEqual(invalidateCount, 1);
 				registry.emit({ type: 'global', action: 'other', item: LocalWidget });
 				assert.strictEqual(invalidateCount, 1);
@@ -131,9 +131,9 @@ registerSuite('RegistryHandler', {
 					invalidateCount++;
 				});
 				registryHandler.get('widget');
-				registryHandler.define('widget', LocalWidget);
+				registryHandler.define('widget', () => LocalWidget);
 				assert.strictEqual(invalidateCount, 1);
-				registry.define('widget', GlobalWidget);
+				registry.define('widget', () => GlobalWidget);
 				assert.strictEqual(invalidateCount, 1);
 			},
 			'no `invalidate` events emitted once the with registry with the highest precedence has loaded - with global'() {
@@ -145,9 +145,9 @@ registerSuite('RegistryHandler', {
 					invalidateCount++;
 				});
 				registryHandler.get('widget', true);
-				registry.define('widget', GlobalWidget);
+				registry.define('widget', () => GlobalWidget);
 				assert.strictEqual(invalidateCount, 1);
-				registryHandler.define('widget', LocalWidget);
+				registryHandler.define('widget', () => LocalWidget);
 				assert.strictEqual(invalidateCount, 1);
 			},
 			'ignores unknown event actions'() {
@@ -229,6 +229,7 @@ registerSuite('RegistryHandler', {
 				assert.strictEqual(invalidateCount, 1);
 			},
 			'invalidates when primary registry emits loaded event even when widget is loaded in secondary registry'() {
+				debugger;
 				const registryHandler = new RegistryHandler();
 				const registry = new Registry();
 				const localInjector = () => ({});

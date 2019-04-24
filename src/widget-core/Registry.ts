@@ -11,12 +11,24 @@ import {
 	ESMDefaultWidgetBase,
 	WidgetBaseConstructorFunction,
 	ESMDefaultWidgetBaseFunction,
-	WidgetFunction
+	WidgetFunction,
+	DefaultWidgetBaseInterface
 } from './interfaces';
 
+export interface A {
+	(): WidgetBaseConstructor;
+}
+
+export interface B {
+	(): WidgetFunction;
+}
+
 export type RegistryItem =
-	| WidgetBaseConstructor
-	| Promise<WidgetBaseConstructor>
+	| A
+	| B
+	| Promise<
+			Constructor<DefaultWidgetBaseInterface> | ESMDefaultWidgetBase<DefaultWidgetBaseInterface> | WidgetFunction
+	  >
 	| WidgetBaseConstructorFunction
 	| ESMDefaultWidgetBaseFunction;
 
@@ -47,7 +59,9 @@ export interface RegistryInterface {
 	 * @param widgetLabel The label of the widget to return
 	 * @returns The RegistryItem for the widgetLabel, `null` if no entry exists
 	 */
-	get<T extends WidgetBaseInterface = WidgetBaseInterface>(label: RegistryLabel): Constructor<T> | null;
+	get<T extends WidgetBaseInterface = WidgetBaseInterface>(
+		label: RegistryLabel
+	): WidgetFunction | Constructor<T> | null;
 
 	/**
 	 * Returns a boolean if an entry for the label exists
@@ -119,11 +133,10 @@ export class Registry extends Evented<{}, RegistryLabel, RegistryEventObject> im
 	/**
 	 * Emit loaded event for registry label
 	 */
-	private emitLoadedEvent(widgetLabel: RegistryLabel, item: WidgetBaseConstructor | InjectorItem): void {
+	private emitLoadedEvent(widgetLabel: RegistryLabel): void {
 		this.emit({
 			type: widgetLabel,
-			action: 'loaded',
-			item
+			action: 'loaded'
 		});
 	}
 
@@ -140,17 +153,20 @@ export class Registry extends Evented<{}, RegistryLabel, RegistryEventObject> im
 
 		if (item instanceof Promise) {
 			item.then(
-				(widgetCtor) => {
-					this._widgetRegistry!.set(label, widgetCtor);
-					this.emitLoadedEvent(label, widgetCtor);
+				(widgetCtor: any) => {
+					if (isWidgetConstructorDefaultExport<DefaultWidgetBaseInterface>(widgetCtor)) {
+						widgetCtor = widgetCtor.default;
+					}
+					this._widgetRegistry!.set(label, () => widgetCtor);
+					this.emitLoadedEvent(label);
 					return widgetCtor;
 				},
 				(error) => {
 					throw error;
 				}
 			);
-		} else if (isWidgetBaseConstructor(item)) {
-			this.emitLoadedEvent(label, item);
+		} else {
+			this.emitLoadedEvent(label);
 		}
 	}
 
@@ -171,43 +187,44 @@ export class Registry extends Evented<{}, RegistryLabel, RegistryEventObject> im
 		};
 
 		this._injectorRegistry.set(label, injectorItem);
-		this.emitLoadedEvent(label, injectorItem);
+		this.emitLoadedEvent(label);
 	}
 
-	public get<T extends WidgetBaseInterface = WidgetBaseInterface>(label: RegistryLabel): Constructor<T> | null {
+	public get<T extends WidgetBaseInterface = WidgetBaseInterface>(
+		label: RegistryLabel
+	): WidgetFunction | Constructor<T> | null {
 		if (!this._widgetRegistry || !this.has(label)) {
 			return null;
 		}
 
 		const item = this._widgetRegistry.get(label);
 
-		if (isWidgetBaseConstructor<T>(item)) {
-			return item;
-		}
-
-		if (item instanceof Promise) {
+		if (!item || item instanceof Promise) {
 			return null;
 		}
 
-		const promise = (<WidgetBaseConstructorFunction>item)();
-		this._widgetRegistry.set(label, promise);
+		const result = item();
 
-		promise.then(
-			(widgetCtor) => {
-				if (isWidgetConstructorDefaultExport<T>(widgetCtor)) {
-					widgetCtor = widgetCtor.default;
+		if (result instanceof Promise) {
+			this._widgetRegistry.set(label, result);
+			(result as any).then(
+				(widgetCtor: any) => {
+					if (isWidgetConstructorDefaultExport<T>(widgetCtor)) {
+						widgetCtor = widgetCtor.default;
+					}
+
+					this._widgetRegistry!.set(label, () => widgetCtor);
+					this.emitLoadedEvent(label);
+					return widgetCtor;
+				},
+				(error: Error) => {
+					throw error;
 				}
+			);
+			return null;
+		}
 
-				this._widgetRegistry!.set(label, widgetCtor);
-				this.emitLoadedEvent(label, widgetCtor);
-				return widgetCtor;
-			},
-			(error) => {
-				throw error;
-			}
-		);
-
-		return null;
+		return result as WidgetFunction | Constructor<T>;
 	}
 
 	public getInjector<T>(label: RegistryLabel): InjectorItem<T> | null {

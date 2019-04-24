@@ -352,6 +352,8 @@ export type WidgetBaseConstructorFunction<W extends WidgetBaseInterface = Defaul
 	Constructor<W>
 >;
 
+export type LazyWidgetFunction = () => Promise<WidgetFunction>;
+
 export type ESMDefaultWidgetBaseFunction<W extends WidgetBaseInterface = DefaultWidgetBaseInterface> = () => Promise<
 	ESMDefaultWidgetBase<W>
 >;

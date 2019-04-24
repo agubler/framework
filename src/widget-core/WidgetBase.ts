@@ -44,7 +44,7 @@ export type BoundFunctionData = { boundFunc: (...args: any[]) => any; scope: any
 const decoratorMap = new WeakMap<Function, Map<string, any[]>>();
 const builtDecoratorMap = new WeakMap<Function, Map<string, any[]>>();
 export const widgetInstanceMap = new WeakMap<
-	WidgetBase<WidgetProperties, DNode<DefaultWidgetBaseInterface>>,
+	WidgetBaseInterface<WidgetProperties, DNode<DefaultWidgetBaseInterface>>,
 	WidgetData
 >();
 const boundAuto = auto.bind(null);

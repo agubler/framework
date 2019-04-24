@@ -4,10 +4,20 @@ import { Constructor, DNode, RegistryLabel } from './interfaces';
 import { w } from './d';
 import { alwaysRender } from './decorators/alwaysRender';
 
-export type Container<T extends WidgetBase> = Constructor<WidgetBase<Partial<T['properties']>>>;
+export type Container<T extends WidgetBase = WidgetBase> = Constructor<WidgetBase<Partial<T['properties']>>>;
 
+export function Container(
+	component: RegistryLabel,
+	name: RegistryLabel,
+	{ getProperties }: { getProperties: GetProperties }
+): Container;
 export function Container<W extends WidgetBase>(
-	component: Constructor<W> | RegistryLabel,
+	component: Constructor<W>,
+	name: RegistryLabel,
+	{ getProperties }: { getProperties: GetProperties }
+): Container<W>;
+export function Container<W extends WidgetBase>(
+	component: any,
 	name: RegistryLabel,
 	{ getProperties }: { getProperties: GetProperties }
 ): Container<W> {

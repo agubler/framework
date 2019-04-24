@@ -22,7 +22,7 @@ export class Widget2 extends WidgetBase {
 
 describe('decorators/registry', () => {
 	it('should use the single entry decorator format to register reg-widget-1', () => {
-		@registry('reg-widget-1', Widget1)
+		@registry('reg-widget-1', () => Widget1)
 		class TestWidget1 extends WidgetBase {
 			render() {
 				return w('reg-widget-1', {});
@@ -39,8 +39,8 @@ describe('decorators/registry', () => {
 
 	it('should use the registry config format to register multiple widgets', () => {
 		@registry({
-			'reg-widget-1': Widget1,
-			'reg-widget-2': Widget2
+			'reg-widget-1': () => Widget1,
+			'reg-widget-2': () => Widget2
 		})
 		class TestWidget2 extends WidgetBase {
 			render() {

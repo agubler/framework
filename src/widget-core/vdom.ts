@@ -12,12 +12,13 @@ import {
 	DomVNode,
 	LazyDefine,
 	Constructor,
-	RenderResult
+	RenderResult,
+	WidgetBaseInterface
 } from './interfaces';
 import transitionStrategy from './animations/cssTransitions';
 import { isVNode, isWNode, WNODE, v, isDomVNode, w, VNODE } from './d';
 import { Registry, isWidgetBaseConstructor, isWidget } from './Registry';
-import { WidgetBase, widgetInstanceMap } from './WidgetBase';
+import { widgetInstanceMap } from './WidgetBase';
 import { RegistryHandler } from './RegistryHandler';
 import { NodeHandler } from './NodeHandler';
 import { auto } from './diff';
@@ -38,10 +39,10 @@ export interface BaseNodeWrapper {
 
 export interface WNodeWrapper extends BaseNodeWrapper {
 	node: WNode;
-	instance?: WidgetBase;
+	instance?: WidgetBaseInterface;
 	mergeNodes?: Node[];
 	nodeHandlerCalled?: boolean;
-	registryItem?: Constructor<WidgetBase> | null;
+	registryItem?: Constructor<WidgetBaseInterface> | null;
 	properties: any;
 }
 
@@ -131,7 +132,7 @@ interface RemoveDomInstruction {
 
 interface AttachApplication {
 	type: 'attach';
-	instance: WidgetBase;
+	instance: WidgetBaseInterface;
 	attached: boolean;
 }
 
@@ -415,15 +416,13 @@ function arrayFrom(arr: any) {
 }
 
 function wrapNodes(renderer: () => DNode) {
-	return class extends WidgetBase {
-		public isWNodeWrapper = true;
-
-		protected render() {
-			const result = renderer();
-			this.isWNodeWrapper = isWNode(result);
-			return result;
-		}
-	};
+	const result = renderer();
+	const isWNodeWrapper = isWNode(result);
+	function App() {
+		return renderer();
+	}
+	(App as any).isWNodeWrapper = isWNodeWrapper;
+	return App;
 }
 
 export function renderer(renderer: () => WNode | VNode): Renderer {
@@ -444,7 +443,7 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 	let _parentWrapperMap = new WeakMap<DNodeWrapper, DNodeWrapper>();
 	let _wrapperSiblingMap = new WeakMap<DNodeWrapper, DNodeWrapper>();
 	let _insertBeforeMap: undefined | WeakMap<DNodeWrapper, Node> = new WeakMap<DNodeWrapper, Node>();
-	let _nodeToInstanceMap = new WeakMap<VNode | WNode, WidgetBase>();
+	let _nodeToInstanceMap = new WeakMap<VNode | WNode, WNodeWrapper>();
 	let _renderScheduled: number | undefined;
 	let _idleCallbacks: Function[] = [];
 	let _deferredRenderCallbacks: Function[] = [];
@@ -511,33 +510,52 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		});
 	}
 
-	function resolveRegistryItem(wrapper: WNodeWrapper, instance?: WidgetBase) {
-		instance = _nodeToInstanceMap.get(wrapper.node) || instance;
+	function resolveRegistryItem(wrapper: WNodeWrapper, instance?: WidgetBaseInterface, id?: number) {
+		const owningNode = _nodeToInstanceMap.get(wrapper.node);
+		if (owningNode) {
+			if (owningNode.instance) {
+				instance = owningNode.instance;
+			} else {
+				id = owningNode.id;
+			}
+		}
+		let registry: RegistryHandler | undefined;
 		if (instance) {
 			const instanceData = widgetInstanceMap.get(instance);
-			if (instanceData && !isWidget(wrapper.node.widgetConstructor)) {
+			if (instanceData) {
+				registry = instanceData.registry;
+			}
+		} else if (id !== undefined) {
+			const widgetMeta = _widgetMetaMap.get(id);
+			if (widgetMeta) {
+				registry = widgetMeta.registry;
+			}
+		}
+
+		if (registry) {
+			if (!isWidget(wrapper.node.widgetConstructor)) {
 				let registryLabel: symbol | string | undefined;
 				if (isLazyDefine(wrapper.node.widgetConstructor)) {
 					const { label, registryItem } = wrapper.node.widgetConstructor;
-					if (!instanceData.registry.has(label)) {
-						instanceData.registry.define(label, registryItem);
+					if (!registry.has(label)) {
+						registry.define(label, registryItem);
 					}
 					registryLabel = label;
 				} else {
 					registryLabel = wrapper.node.widgetConstructor;
 				}
 
-				wrapper.registryItem = instanceData.registry.get<WidgetBase>(registryLabel);
+				wrapper.registryItem = registry.get<WidgetBaseInterface>(registryLabel);
 			}
 		}
 	}
 
-	function mapNodeToInstance(nodes: DNode[], instance: WidgetBase) {
+	function mapNodeToInstance(nodes: DNode[], wrapper: WNodeWrapper) {
 		let node: DNode;
 		while ((node = nodes.pop())) {
 			if (isWNode(node) || isVNode(node)) {
 				if (!_nodeToInstanceMap.has(node)) {
-					_nodeToInstanceMap.set(node, instance);
+					_nodeToInstanceMap.set(node, wrapper);
 					if (node.children && node.children.length) {
 						nodes = [...nodes, ...node.children];
 					}
@@ -561,7 +579,7 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 			(hasCurrentParentChildren && rendered.length > 1);
 		let previousItem: DNodeWrapper | undefined;
 		if (isWNodeWrapper(parent) && rendered.length) {
-			mapNodeToInstance([...rendered], parent.instance!);
+			mapNodeToInstance([...rendered], parent);
 		}
 		for (let i = 0; i < rendered.length; i++) {
 			let renderedItem = rendered[i];
@@ -597,7 +615,7 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 				}
 			}
 			if (isWNode(renderedItem)) {
-				resolveRegistryItem(wrapper as WNodeWrapper, (parent as any).instance);
+				resolveRegistryItem(wrapper as WNodeWrapper, (parent as any).instance, parent.id);
 			}
 
 			_parentWrapperMap.set(wrapper, parent);
@@ -671,7 +689,7 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 			}
 			searchNode = _parentWrapperMap.get(searchNode);
 
-			if (!searchNode || isVNodeWrapper(searchNode || !someSillyMap.get(next)!.requiresSearch)) {
+			if (!searchNode || isVNodeWrapper(searchNode)) {
 				break;
 			}
 		}
@@ -987,9 +1005,9 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 					setValue(domNode!.parentElement);
 				}
 				runEnterAnimation(next, _mountOptions.transition);
-				const instance = _nodeToInstanceMap.get(next.node);
-				if (instance) {
-					const instanceData = widgetInstanceMap.get(instance);
+				const owningWrapper = _nodeToInstanceMap.get(next.node);
+				if (owningWrapper && owningWrapper.instance) {
+					const instanceData = widgetInstanceMap.get(owningWrapper.instance);
 					if (node.properties.key != null && instanceData) {
 						instanceData.nodeHandler.add(domNode as HTMLElement, `${node.properties.key}`);
 					}
@@ -1011,9 +1029,9 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 				processProperties(next, previousProperties);
 				runDeferredProperties(next);
 
-				const instance = _nodeToInstanceMap.get(next.node);
-				if (instance) {
-					const instanceData = widgetInstanceMap.get(instance);
+				const owningWrapper = _nodeToInstanceMap.get(next.node);
+				if (owningWrapper && owningWrapper.instance) {
+					const instanceData = widgetInstanceMap.get(owningWrapper.instance);
 					if (instanceData && next.node.properties.key != null) {
 						instanceData.nodeHandler.add(next.domNode as HTMLElement, `${next.node.properties.key}`);
 					}
@@ -1082,8 +1100,6 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 			checkDistinguishable(childNodes, index, parentWNodeWrapper);
 		});
 	}
-
-	const someSillyMap = new WeakMap();
 
 	function _process(current: DNodeWrapper[], next: DNodeWrapper[], meta: ProcessMeta = {}): void {
 		let { mergeNodes = [], oldIndex = 0, newIndex = 0 } = meta;
@@ -1195,10 +1211,11 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 		}
 
 		let rendered: RenderResult;
-		let instance: WidgetBase | undefined;
+		let instance: (WidgetBaseInterface & { invalidate: any; registry: any }) | undefined;
+		let invalidate: () => void;
 		next.properties = next.node.properties;
 		if (!isWidgetBaseConstructor(Constructor)) {
-			const invalidator = () => {
+			invalidate = () => {
 				const widgetMeta = _widgetMetaMap.get(next.id);
 				if (widgetMeta) {
 					widgetMeta.dirty = true;
@@ -1206,33 +1223,38 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 				_invalidationQueue.push({ id: next.id, depth: next.depth, order: next.order });
 				_schedule();
 			};
-			const registry = new RegistryHandler();
+			const registryHandler = new RegistryHandler();
+			registryHandler.on('invalidate', invalidate);
+			if (registry) {
+				registryHandler.base = registry;
+			}
 			const nodeHandler = new NodeHandler();
 			const widgetMeta = {
 				dirty: false,
-				invalidator,
-				registry,
+				invalidator: invalidate,
+				registry: registryHandler,
 				nodeHandler
 			};
 			_widgetMetaMap.set(next.id, widgetMeta);
 			rendered = Constructor({
 				properties: next.node.properties,
 				children: next.node.children,
-				registry
+				registry: registryHandler
 			});
 		} else {
-			instance = new Constructor() as WidgetBase;
+			instance = new Constructor() as WidgetBaseInterface & { invalidate: any; registry: any };
 			if (registry) {
 				instance.registry.base = registry;
 			}
 			const instanceData = widgetInstanceMap.get(instance)!;
-			instanceData.invalidate = () => {
+			invalidate = () => {
 				instanceData.dirty = true;
 				if (!instanceData.rendering && _idToWrapperMap.has(next.id)) {
 					_invalidationQueue.push({ id: next.id, depth: next.depth, order: next.order });
 					_schedule();
 				}
 			};
+			instanceData.invalidate = invalidate;
 			instanceData.rendering = true;
 			instance.__setProperties__(next.node.properties);
 			instance.__setChildren__(next.node.children);
@@ -1245,15 +1267,16 @@ export function renderer(renderer: () => WNode | VNode): Renderer {
 			next.childrenWrappers = renderedToWrapper(rendered, next, null);
 		}
 		_idToWrapperMap.set(next.id, next);
+		if (!parentInvalidate && !(next.node.widgetConstructor as any).isWNodeWrapper) {
+			parentInvalidate = invalidate;
+		}
 		if (instance) {
-			if (!parentInvalidate && !(next.instance as any).isWNodeWrapper) {
-				parentInvalidate = instance.invalidate.bind(next.instance);
-			}
 			return {
 				item: { next: next.childrenWrappers, meta: { mergeNodes: next.mergeNodes } },
 				widget: { type: 'attach', instance, attached: true }
 			};
 		}
+
 		return {
 			item: { next: next.childrenWrappers, meta: { mergeNodes: next.mergeNodes } }
 		};

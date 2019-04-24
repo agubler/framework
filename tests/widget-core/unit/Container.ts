@@ -30,7 +30,7 @@ function getProperties(toInject: any, properties: any) {
 const registry = new Registry();
 const injector = () => () => ({});
 registry.defineInjector('test-state-1', injector);
-registry.define('test-widget', TestWidget);
+registry.define('test-widget', () => TestWidget);
 
 registerSuite('mixins/Container', {
 	beforeEach() {
@@ -87,7 +87,7 @@ registerSuite('mixins/Container', {
 				assert.deepEqual(properties.children, []);
 			};
 
-			const TestWidgetContainer = Container<TestWidget>('test-widget', 'test-state-1', { getProperties });
+			const TestWidgetContainer = Container('test-widget', 'test-state-1', { getProperties });
 			const widget = new TestWidgetContainer();
 			const renderResult: any = widget.__render__();
 

@@ -149,21 +149,22 @@ export function w<W extends WidgetBaseInterface>(
 	properties: Partial<W['properties']>,
 	children?: W['children']
 ): WNode<W>;
+export function w<P extends {}, C extends DNode[] = DNode[]>(
+	widgetConstructorOrNode: WidgetFunction<P, C>,
+	properties: P & WidgetProperties,
+	children?: C
+): WNode;
+export function w<P extends {}, C extends DNode[] = DNode[]>(
+	widgetConstructor: RegistryLabel,
+	properties: P & WidgetProperties,
+	children?: C
+): WNode;
 export function w<W extends WidgetBaseInterface>(
-	widgetConstructor: Constructor<W> | RegistryLabel | LazyDefine<W>,
+	widgetConstructor: Constructor<W> | LazyDefine<W>,
 	properties: W['properties'],
 	children?: W['children']
 ): WNode<W>;
-export function w<W extends WidgetBaseInterface, P, C>(
-	widgetConstructorOrNode: WidgetFunction<P, C>,
-	properties: P,
-	children?: C
-): WNode;
-export function w<W extends WidgetBaseInterface, P, C extends DNode[]>(
-	widgetConstructorOrNode: WidgetFunction<P, C> | Constructor<W> | RegistryLabel | WNode<W> | LazyDefine<W>,
-	properties: W['properties'] | (P & WidgetProperties),
-	children?: W['children'] | C
-): WNode<W, P, C> {
+export function w(widgetConstructorOrNode: any, properties: any, children?: any): any {
 	if (isWNode(widgetConstructorOrNode)) {
 		properties = { ...(widgetConstructorOrNode.properties as any), ...(properties as any) };
 		children = children ? children : widgetConstructorOrNode.children;

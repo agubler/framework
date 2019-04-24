@@ -95,7 +95,7 @@ export function StoreContainer<S = any, W extends WidgetBase<any, any> = WidgetB
 	@storeInject({ name, paths, getProperties })
 	class WidgetContainer extends WidgetBase<Partial<W['properties']>, W['children'][0]> {
 		protected render(): DNode {
-			return w(component, this.properties, this.children);
+			return w(component as any, this.properties, this.children);
 		}
 	}
 	return WidgetContainer;
