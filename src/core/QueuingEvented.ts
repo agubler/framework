@@ -58,7 +58,7 @@ class QueuingEvented<
 		this.listenersMap.forEach((method, listenerType) => {
 			this._queue.forEach((events, queuedType) => {
 				if (isGlobMatch(listenerType as any, queuedType)) {
-					events.forEach((event) => this.emit(event));
+					events.forEach((event) => this.emit(event as any));
 					this._queue.delete(queuedType);
 				}
 			});

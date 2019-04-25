@@ -348,36 +348,91 @@ export interface ESMDefaultWidgetBase<T> {
 	__esModule?: boolean;
 }
 
-export type WidgetBaseConstructorFunction<W extends WidgetBaseInterface = DefaultWidgetBaseInterface> = () => Promise<
+export type WidgetBaseConstructorFunction<W extends WidgetBaseTypes = DefaultWidgetBaseInterface> = () => Promise<
 	Constructor<W>
 >;
 
-export type ESMDefaultWidgetBaseFunction<W extends WidgetBaseInterface = DefaultWidgetBaseInterface> = () => Promise<
+export type ESMDefaultWidgetBaseFunction<W extends WidgetBaseTypes = DefaultWidgetBaseInterface> = () => Promise<
 	ESMDefaultWidgetBase<W>
 >;
 
-export type LazyWidget<W extends WidgetBaseInterface = DefaultWidgetBaseInterface> =
+export type LazyWidget<W extends WidgetBaseTypes = DefaultWidgetBaseInterface> =
 	| WidgetBaseConstructorFunction<W>
 	| ESMDefaultWidgetBaseFunction<W>;
 
-export type LazyDefine<W extends WidgetBaseInterface = DefaultWidgetBaseInterface> = {
+export type LazyDefine<W extends WidgetBaseTypes = DefaultWidgetBaseInterface> = {
 	label: string;
 	registryItem: LazyWidget<W>;
 };
 
+export interface MiddlewareMap<Middleware extends { api: any; properties: any; children: any }> {
+	[index: string]: Middleware;
+}
+
+export type MiddlewareApiMap<U extends MiddlewareMap<any>> = { [P in keyof U]: U[P]['api'] };
+
+export interface MiddlewareCallback<Props, Middleware, ReturnValue> {
+	(
+		options: { id: number; invalidator: any; middleware: MiddlewareApiMap<Middleware>; properties: Props }
+	): ReturnValue;
+}
+
+export interface MiddlewareResult<Props, Middleware, ReturnValue> {
+	api: ReturnValue;
+	properties: Props;
+	callback: MiddlewareCallback<Props, Middleware, ReturnValue>;
+	middlewares: Middleware;
+}
+
+export interface WNodeFactory<W extends WidgetBaseTypes> {
+	(properties: W['properties'], children?: W['children']): WNode<DefaultWidgetBaseInterface>;
+}
+
+export interface WidgetResultWithMiddleware<T, MiddlewareProps> {
+	<Props, Children extends DNode[] = DNode[]>(
+		callback: (
+			options: {
+				middleware: MiddlewareApiMap<T>;
+				properties: UnionToIntersection<Props & MiddlewareProps>;
+				children: DNode[];
+			}
+		) => RenderResult
+	): WNodeFactory<{ properties: UnionToIntersection<Props & MiddlewareProps>; children: Children }>;
+}
+
+export interface WidgetResult {
+	<Props, Children extends DNode[] = DNode[]>(
+		callback: (
+			options: {
+				properties: Props;
+				children: DNode[];
+			}
+		) => RenderResult
+	): WNodeFactory<{ properties: Props; children: Children }>;
+}
+
+export type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends ((k: infer I) => void)
+	? I
+	: never;
+
+export interface WidgetCallback<Props, Middleware, MiddlewareProps> {
+	(
+		options: {
+			middleware: MiddlewareApiMap<Middleware>;
+			properties: UnionToIntersection<Props & MiddlewareProps>;
+			children: DNode[];
+		}
+	): RenderResult;
+}
+
 /**
  * Wrapper for `w`
  */
-export interface WNode<W extends WidgetBaseInterface = DefaultWidgetBaseInterface> {
+export interface WNode<W extends WidgetBaseTypes = any> {
 	/**
 	 * Constructor to create a widget or string constructor label
 	 */
-	widgetConstructor:
-		| Constructor<W>
-		| RegistryLabel
-		| WidgetBaseConstructorFunction<W>
-		| ESMDefaultWidgetBaseFunction<W>
-		| LazyDefine<W>;
+	widgetConstructor: Constructor<W> | RegistryLabel | LazyDefine<W> | WidgetCallback<any, any, any>;
 
 	/**
 	 * Properties to set against a widget instance
@@ -398,13 +453,7 @@ export interface WNode<W extends WidgetBaseInterface = DefaultWidgetBaseInterfac
 /**
  * union type for all possible return types from render
  */
-export type DNode<W extends WidgetBaseInterface<WidgetProperties, any> = WidgetBaseInterface<WidgetProperties, any>> =
-	| VNode
-	| WNode<W>
-	| undefined
-	| null
-	| string
-	| boolean;
+export type DNode = VNode | WNode<any> | undefined | null | string | boolean;
 
 /**
  * Property Change record for specific property diff functions
@@ -431,20 +480,22 @@ export type WidgetBaseConstructor<P extends WidgetProperties = WidgetProperties,
 
 export interface DefaultWidgetBaseInterface extends WidgetBaseInterface<WidgetProperties, DNode> {}
 
-/**
- * The interface for WidgetBase
- */
-export interface WidgetBaseInterface<P = WidgetProperties, C extends DNode = DNode> {
+export interface WidgetBaseTypes<P = any, C extends DNode = DNode> {
 	/**
 	 * Widget properties
 	 */
-	readonly properties: P & WidgetProperties;
+	readonly properties: P;
 
 	/**
 	 * Returns the widget's children
 	 */
 	readonly children: (C | null)[];
+}
 
+/**
+ * The interface for WidgetBase
+ */
+export interface WidgetBaseInterface<P = WidgetProperties, C extends DNode = DNode> extends WidgetBaseTypes<P, C> {
 	/**
 	 * Sets the properties for the widget. Responsible for calling the diffing functions for the properties against the
 	 * previous properties. Runs though any registered specific property diff functions collecting the results and then
@@ -504,7 +555,7 @@ export interface WidgetMetaProperties {
 	bind: WidgetBaseInterface;
 }
 
-export type RenderResult = DNode<any> | DNode<any>[];
+export type RenderResult = DNode | DNode[];
 
 export interface Render {
 	(): DNode | DNode[];

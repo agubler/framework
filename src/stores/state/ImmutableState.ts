@@ -93,7 +93,7 @@ export class ImmutableState<T = any> implements MutableState<T> {
 		let value = this._state.getIn(pointer.segments);
 
 		if (value instanceof List || value instanceof Map) {
-			value = value.toJS();
+			value = (value as any).toJS();
 		}
 
 		return {
@@ -181,7 +181,7 @@ export class ImmutableState<T = any> implements MutableState<T> {
 		const parent = state.getIn(segments);
 
 		if (parent instanceof List && add) {
-			state = state.setIn(segments, parent.insert(lastSegment, value));
+			state = state.setIn(segments, (parent as any).insert(lastSegment, value));
 
 			return state;
 		} else if (parent instanceof Map || parent instanceof List) {

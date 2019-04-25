@@ -10,7 +10,8 @@ import {
 	WidgetBaseInterface,
 	ESMDefaultWidgetBase,
 	WidgetBaseConstructorFunction,
-	ESMDefaultWidgetBaseFunction
+	ESMDefaultWidgetBaseFunction,
+	WidgetCallback
 } from './interfaces';
 
 export type RegistryItem =
@@ -87,8 +88,12 @@ export interface RegistryInterface {
  * @param item the item to check
  * @returns true/false indicating if the item is a WidgetBaseConstructor
  */
-export function isWidgetBaseConstructor<T extends WidgetBaseInterface>(item: any): item is Constructor<T> {
+export function isWidgetBaseConstructor(item: any): item is Constructor<any> {
 	return Boolean(item && item._type === WIDGET_BASE_TYPE);
+}
+
+export function isWidget(item: any): item is Constructor<any> | WidgetCallback<any, any, any> {
+	return Boolean(item && item._type === WIDGET_BASE_TYPE) || item.isWidget === true;
 }
 
 export function isWidgetConstructorDefaultExport<T>(item: any): item is ESMDefaultWidgetBase<T> {
@@ -176,8 +181,8 @@ export class Registry extends Evented<{}, RegistryLabel, RegistryEventObject> im
 
 		const item = this._widgetRegistry.get(label);
 
-		if (isWidgetBaseConstructor<T>(item)) {
-			return item;
+		if (isWidgetBaseConstructor(item)) {
+			return item as Constructor<T>;
 		}
 
 		if (item instanceof Promise) {

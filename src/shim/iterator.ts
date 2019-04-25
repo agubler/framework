@@ -128,7 +128,7 @@ export function forOf<T>(
 	if (isArrayLike(iterable) && typeof iterable === 'string') {
 		const l = iterable.length;
 		for (let i = 0; i < l; ++i) {
-			let char = iterable[i];
+			let char: any = iterable[i];
 			if (i + 1 < l) {
 				const code = char.charCodeAt(0);
 				if (code >= HIGH_SURROGATE_MIN && code <= HIGH_SURROGATE_MAX) {

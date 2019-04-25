@@ -277,7 +277,7 @@ export function debounce<T extends (this: any, ...args: any[]) => void>(callback
 		timer && timer.destroy();
 
 		let context = this;
-		let args: IArguments | null = arguments;
+		let args: any = arguments;
 
 		timer = guaranteeMinimumTimeout(function() {
 			callback.apply(context, args);
@@ -286,7 +286,7 @@ export function debounce<T extends (this: any, ...args: any[]) => void>(callback
 	};
 }
 
-export function throttle<T extends (this: any, ...args: any[]) => void>(callback: T, delay: number): T {
+export function throttle<T extends (this: any, ...args: any) => void>(callback: T, delay: number): T {
 	let ran: boolean | null;
 
 	return <T>function() {
@@ -296,7 +296,7 @@ export function throttle<T extends (this: any, ...args: any[]) => void>(callback
 
 		ran = true;
 
-		callback.apply(this, arguments);
+		callback.apply(this, arguments as any);
 		guaranteeMinimumTimeout(function() {
 			ran = null;
 		}, delay);

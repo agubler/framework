@@ -22,7 +22,7 @@ function assertFrom(arrayable: any, expected: any[]): void {
 
 class MyArray {
 	constructor() {
-		Array.apply(this, arguments);
+		Array.apply(this, arguments as any);
 		return this;
 	}
 	static from = array.from;

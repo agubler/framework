@@ -15,7 +15,7 @@ export interface Path<M, T> {
 }
 
 export type RequiredProps<T> = { [P in PurifyProps<keyof T>]: NonNullableProps<T[P]> };
-export type PurifyProps<T extends string> = { [P in T]: T }[T];
+export type PurifyProps<T extends string | number | symbol> = { [P in T]: T }[T];
 export type NonNullableProps<T> = T & {};
 
 /**
@@ -266,7 +266,7 @@ export class Store<T = any> extends Evented implements MutableState<T> {
 			const { previousValue, callbacks } = value;
 			const pointer = new Pointer(path);
 			const newValue = pointer.segments.length
-				? this._adapter.path(pointer.segments[0] as keyof T, ...pointer.segments.slice(1)).value
+				? (this._adapter.path as any)(pointer.segments[0] as keyof T, ...pointer.segments.slice(1)).value
 				: undefined;
 			if (previousValue !== newValue) {
 				this._changePaths.set(path, { callbacks, previousValue: newValue });

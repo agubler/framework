@@ -1,8 +1,8 @@
-import { DNode, DefaultWidgetBaseInterface, WNode, VNode } from '../../widget-core/interfaces';
+import { DNode, WNode, VNode } from '../../widget-core/interfaces';
 import { decorate, isVNode, isWNode } from '../../widget-core/d';
 import * as cssSelect from 'css-select-umd';
 
-export type TestFunction = (elem: DNode<DefaultWidgetBaseInterface>) => boolean;
+export type TestFunction = (elem: DNode) => boolean;
 
 export interface DecoratorResult<T> {
 	hasDeferredProperties: boolean;

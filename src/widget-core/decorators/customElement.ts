@@ -40,7 +40,7 @@ export interface CustomElementConfig<P extends object = { [index: string]: any }
 export function customElement<P extends object = { [index: string]: any }>(config: CustomElementConfig<P>) {
 	// rename "tag" to "tagName"
 	const { tag: tagName, ...configRest } = config;
-	const userDefinedConfig: CustomElementConfig & { tagName?: string } = configRest;
+	const userDefinedConfig: CustomElementConfig & { tagName?: string } = configRest as any;
 
 	if (tagName) {
 		userDefinedConfig.tagName = tagName;

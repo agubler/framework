@@ -1,10 +1,23 @@
 import { v, w } from './d';
-import { Constructor, DNode } from './interfaces';
+import {
+	Constructor,
+	DNode,
+	WidgetResult,
+	MiddlewareMap,
+	WidgetResultWithMiddleware,
+	WidgetCallback,
+	UnionToIntersection,
+	MiddlewareCallback,
+	MiddlewareResult,
+	WNodeFactory
+} from './interfaces';
 import { WNode, VNodeProperties } from './interfaces';
+
+export { v, w } from './d';
 
 declare global {
 	namespace JSX {
-		type Element = WNode;
+		type Element = WNode<any>;
 		interface ElementAttributesProperty {
 			properties: {};
 		}
@@ -53,4 +66,63 @@ export function tsx(tag: any, properties = {}, ...children: any[]): DNode {
 	} else {
 		return w(tag, properties, children);
 	}
+}
+
+export function widget(): WidgetResult;
+export function widget<T extends MiddlewareMap<any>, MiddlewareProps = T[keyof T]['properties']>(
+	middlewares: T
+): WidgetResultWithMiddleware<T, MiddlewareProps>;
+export function widget<T extends MiddlewareMap<any>, MiddlewareProps = T[keyof T]['properties']>(
+	middlewares?: any
+): any {
+	return function<Props, Children extends DNode[] = DNode[]>(
+		callback: WidgetCallback<Props, T, MiddlewareProps>
+	): WNodeFactory<{ properties: UnionToIntersection<Props & MiddlewareProps>; children: Children }> {
+		const factory = (properties: any, children?: any) => {
+			const result = w(callback as any, properties, children);
+			(result as any).middlewares = middlewares;
+			(callback as any).isWidget = true;
+			return result;
+		};
+		return factory as WNodeFactory<{
+			properties: UnionToIntersection<Props & MiddlewareProps>;
+			children: Children;
+		}>;
+	};
+}
+
+export function middleware<Props>() {
+	function createMiddleware<ReturnValue>(
+		callback: MiddlewareCallback<Props, {}, ReturnValue>
+	): MiddlewareResult<Props, {}, ReturnValue>;
+	function createMiddleware<
+		ReturnValue,
+		Middleware extends MiddlewareMap<any>,
+		MiddlewareProps = Middleware[keyof Middleware]['properties']
+	>(
+		middlewares: Middleware,
+		callback: MiddlewareCallback<UnionToIntersection<Props & MiddlewareProps>, Middleware, ReturnValue>
+	): MiddlewareResult<UnionToIntersection<Props & MiddlewareProps>, Middleware, ReturnValue>;
+	function createMiddleware<
+		ReturnValue,
+		Middleware extends MiddlewareMap<any>,
+		MiddlewareProps = Middleware[keyof Middleware]['properties']
+	>(
+		middlewares:
+			| Middleware
+			| MiddlewareCallback<UnionToIntersection<Props & MiddlewareProps>, Middleware, ReturnValue>,
+		callback?: MiddlewareCallback<UnionToIntersection<Props & MiddlewareProps>, Middleware, ReturnValue>
+	): any {
+		if (callback) {
+			return {
+				middlewares,
+				callback
+			};
+		}
+		return {
+			callback
+		};
+	}
+
+	return createMiddleware;
 }
