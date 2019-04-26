@@ -58,7 +58,7 @@ export function isElementNode(value: any): value is Element {
 }
 
 function isWNodeFactory<W extends WidgetBaseTypes>(node: any): node is WNodeFactory<W> {
-	if (typeof node.widgetConstructorOrNode === 'function' && node.isWidget) {
+	if (typeof node === 'function' && node.isFactory) {
 		return true;
 	}
 	return false;

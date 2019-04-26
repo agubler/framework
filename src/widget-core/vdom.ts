@@ -20,12 +20,10 @@ import { isVNode, isWNode, WNODE, v, isDomVNode, w, VNODE } from './d';
 import { Registry, isWidgetBaseConstructor, isWidget } from './Registry';
 import WidgetBase, { widgetInstanceMap } from './WidgetBase';
 import { RegistryHandler } from './RegistryHandler';
-import { NodeHandler } from './NodeHandler';
 import { auto } from './diff';
-// import { widget } from './tsx';
 
 export interface BaseNodeWrapper {
-	id: number;
+	id: string;
 	node: WNode<any> | VNode;
 	domNode?: Node;
 	childrenWrappers?: DNodeWrapper[];
@@ -50,8 +48,9 @@ export interface WNodeWrapper extends BaseNodeWrapper {
 export interface WidgetMeta {
 	dirty: boolean;
 	invalidator: (() => void) | undefined;
-	registry: RegistryHandler;
-	nodeHandler: NodeHandler;
+	middleware: any;
+	registryHandler: RegistryHandler;
+	properties: any;
 }
 
 export interface VNodeWrapper extends BaseNodeWrapper {
@@ -95,7 +94,7 @@ interface ProcessMeta {
 }
 
 interface InvalidationQueueItem {
-	id: number;
+	id: string;
 	depth: number;
 	order: number;
 }
@@ -223,7 +222,17 @@ function updateAttributes(
 	}
 }
 
-function diffProperties(current: any, next: any, invalidator: () => void) {
+function diffProperties(current: any, next: any, id: string, invalidator: () => void) {
+	const customDiffs = customDiffMap.get(id);
+	if (customDiffs) {
+		for (let i = 0; i < customDiffs.length; i++) {
+			const result = customDiffs[i](current, next);
+			if (result) {
+				invalidator();
+				return;
+			}
+		}
+	}
 	const propertyNames = [...Object.keys(current), ...Object.keys(next)];
 	let diffedProperties = [];
 	for (let i = 0; i < propertyNames.length; i++) {
@@ -426,6 +435,9 @@ function arrayFrom(arr: any) {
 // 	return App;
 // }
 
+let widgetMetaMap = new Map<string, WidgetMeta>();
+let wrapperId = 0;
+
 function wrapNodes(renderer: () => DNode) {
 	return class extends WidgetBase {
 		public isWNodeWrapper = true;
@@ -438,9 +450,27 @@ function wrapNodes(renderer: () => DNode) {
 	};
 }
 
-const domNodeCacheMap = new Map<number, Map<string | number, HTMLElement>>();
+const customDiffMap = new Map<string, Function[]>();
 
-export function getNodeById(id: number, key: string | number, callback: Function) {
+export function registerCustomDiff(id: string, diff: Function) {
+	const [widgetId] = id.split('-');
+	const diffs = customDiffMap.get(widgetId) || [];
+	diffs.push(diff);
+	customDiffMap.set(widgetId, diffs);
+}
+
+const domNodeCacheMap = new Map<string, Map<string | number, HTMLElement>>();
+
+export function getRegistry(id: string): RegistryHandler | null {
+	const [widgetId] = id.split('-');
+	const widgetMeta = widgetMetaMap.get(widgetId);
+	if (widgetMeta) {
+		return widgetMeta.registryHandler;
+	}
+	return null;
+}
+
+export function getNodeById(id: string, key: string | number, callback: Function) {
 	const nodeMap = domNodeCacheMap.get(id);
 	if (!nodeMap) {
 		return null;
@@ -461,8 +491,7 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 	let _deferredProcessQueue: (ProcessItem | DetachApplication | AttachApplication)[] = [];
 	let _applicationQueue: ApplicationInstruction[] = [];
 	let _eventMap = new WeakMap<Function, EventListener>();
-	let _idToWrapperMap = new Map<number, WNodeWrapper>();
-	let _widgetMetaMap = new Map<number, WidgetMeta>();
+	let _idToWrapperMap = new Map<string, WNodeWrapper>();
 	let _parentWrapperMap = new WeakMap<DNodeWrapper, DNodeWrapper>();
 	let _wrapperSiblingMap = new WeakMap<DNodeWrapper, DNodeWrapper>();
 	let _insertBeforeMap: undefined | WeakMap<DNodeWrapper, Node> = new WeakMap<DNodeWrapper, Node>();
@@ -472,7 +501,6 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 	let _deferredRenderCallbacks: Function[] = [];
 	let parentInvalidate: () => void;
 	let _allMergedNodes: Node[] = [];
-	let wrapperId = 0;
 
 	function nodeOperation(
 		propName: string,
@@ -533,7 +561,7 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 		});
 	}
 
-	function resolveRegistryItem(wrapper: WNodeWrapper, instance?: WidgetBaseInterface, id?: number) {
+	function resolveRegistryItem(wrapper: WNodeWrapper, instance?: WidgetBaseInterface, id?: string) {
 		const owningNode = _nodeToInstanceMap.get(wrapper.node);
 		if (owningNode) {
 			if (owningNode.instance) {
@@ -549,9 +577,9 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 				registry = instanceData.registry;
 			}
 		} else if (id !== undefined) {
-			const widgetMeta = _widgetMetaMap.get(id);
+			const widgetMeta = widgetMetaMap.get(id);
 			if (widgetMeta) {
-				registry = widgetMeta.registry;
+				registry = widgetMeta.registryHandler;
 			}
 		}
 
@@ -613,7 +641,7 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 				renderedItem = toTextVNode(renderedItem);
 			}
 			const wrapper: DNodeWrapper = {
-				id: wrapperId++,
+				id: `${wrapperId++}`,
 				node: renderedItem,
 				depth: depth + 1,
 				order: i,
@@ -889,13 +917,13 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 		const { domNode } = _mountOptions;
 		const renderResult = w(wrapNodes(renderer), {});
 		const nextWrapper = {
-			id: wrapperId++,
+			id: `${wrapperId++}`,
 			node: renderResult,
 			order: 0,
 			depth: 1,
 			properties: {}
 		};
-		_parentWrapperMap.set(nextWrapper, { id: wrapperId++, depth: 0, order: 0, domNode, node: v('fake') });
+		_parentWrapperMap.set(nextWrapper, { id: `${wrapperId++}`, depth: 0, order: 0, domNode, node: v('fake') });
 		_processQueue.push({
 			current: [],
 			next: [nextWrapper],
@@ -1219,6 +1247,38 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 		return {};
 	}
 
+	let metaId = 0;
+
+	function resolveMiddleware(middlewares: any, id: string): any {
+		const keys = Object.keys(middlewares);
+		const results: any = {};
+		const uniqueId = `${id}-${metaId++}`;
+		for (let i = 0; i < keys.length; i++) {
+			const middleware = middlewares[keys[i]];
+			const payload: any = {
+				id: uniqueId
+			};
+			Object.defineProperty(payload, 'properties', {
+				get() {
+					const widgetMeta = widgetMetaMap.get(id);
+					if (widgetMeta) {
+						return { ...widgetMeta.properties };
+					}
+				},
+				enumerable: true,
+				configurable: true
+			});
+			if (middleware.middlewares) {
+				const blah = resolveMiddleware(middleware.middlewares, id);
+				payload.middleware = blah;
+				results[keys[i]] = middleware.callback(payload);
+			} else {
+				results[keys[i]] = middleware.callback(payload);
+			}
+		}
+		return results;
+	}
+
 	function _createWidget({ next }: CreateWidgetInstruction): ProcessResult | false {
 		let {
 			node: { widgetConstructor }
@@ -1240,7 +1300,7 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 		if (!isWidgetBaseConstructor(Constructor)) {
 			Constructor;
 			invalidate = () => {
-				const widgetMeta = _widgetMetaMap.get(next.id);
+				const widgetMeta = widgetMetaMap.get(next.id);
 				if (widgetMeta) {
 					widgetMeta.dirty = true;
 				}
@@ -1252,21 +1312,27 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 			if (registry) {
 				registryHandler.base = registry;
 			}
-			const nodeHandler = new NodeHandler();
+
 			const widgetMeta = {
 				dirty: false,
 				invalidator: invalidate,
-				registry: registryHandler,
-				nodeHandler
+				middleware: undefined,
+				registryHandler,
+				properties: next.node.properties
 			};
-			_widgetMetaMap.set(next.id, widgetMeta);
+			widgetMetaMap.set(next.id, widgetMeta);
 
-			(next.node as any).middlewares;
+			let middleware = (Constructor as any).middlewares;
+
+			if (middleware) {
+				middleware = resolveMiddleware(middleware, next.id);
+				widgetMeta.middleware = middleware;
+			}
 
 			rendered = Constructor({
 				properties: next.node.properties,
 				children: next.node.children,
-				middleware: {}
+				middleware
 			});
 		} else {
 			instance = new Constructor() as WidgetBaseInterface & { invalidate: any; registry: any };
@@ -1328,9 +1394,10 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 			next.domNode = domNode;
 		}
 		if (!isWidgetBaseConstructor(Constructor)) {
-			const widgetMeta = _widgetMetaMap.get(next.id);
+			const widgetMeta = widgetMetaMap.get(next.id);
 			if (widgetMeta) {
-				diffProperties(current.properties, next.properties, () => {
+				widgetMeta.properties = next.properties;
+				diffProperties(current.properties, next.properties, `${next.id}`, () => {
 					widgetMeta.dirty = true;
 				});
 				if (widgetMeta.dirty) {
@@ -1338,7 +1405,7 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 					rendered = Constructor({
 						properties: next.node.properties,
 						children: next.node.children,
-						middleware: {}
+						middleware: widgetMeta.middleware
 					});
 				} else {
 					next.childrenWrappers = current.childrenWrappers;
@@ -1389,12 +1456,11 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 		_wrapperSiblingMap.delete(current);
 		_parentWrapperMap.delete(current);
 		_idToWrapperMap.delete(current.id);
-		const meta = _widgetMetaMap.get(current.id);
+		const meta = widgetMetaMap.get(current.id);
 		if (meta) {
-			meta.nodeHandler.destroy();
-			meta.registry.destroy();
+			meta.registryHandler.destroy();
 			meta.invalidator = undefined;
-			_widgetMetaMap.delete(current.id);
+			widgetMetaMap.delete(current.id);
 		}
 
 		return {
@@ -1509,11 +1575,10 @@ export function renderer(renderer: () => WNode<any> | VNode): Renderer {
 							instanceData && instanceData.onDetach();
 							wrapper.instance = undefined;
 						} else {
-							const meta = _widgetMetaMap.get(wrapper.id);
+							const meta = widgetMetaMap.get(wrapper.id);
 							if (meta) {
-								meta.nodeHandler.destroy();
-								meta.registry.destroy();
-								_widgetMetaMap.delete(wrapper.id);
+								meta.registryHandler.destroy();
+								widgetMetaMap.delete(wrapper.id);
 							}
 						}
 					}

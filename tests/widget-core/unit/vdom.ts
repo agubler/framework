@@ -14,6 +14,8 @@ import Registry from '../../../src/widget-core/Registry';
 import { I18nMixin } from '../../../src/widget-core/mixins/I18n';
 import registry from '../../../src/widget-core/decorators/registry';
 import { alwaysRender } from '../../../src/widget-core/decorators/alwaysRender';
+import { widget } from '../../../src/widget-core/tsx';
+import theme from '../../../src/widget-core/middlewares/theme';
 
 const resolvers = createResolvers();
 
@@ -168,6 +170,58 @@ jsdomDescribe('vdom', () => {
 			}
 
 			const r = renderer(() => w(Parent, {}));
+			const root: any = document.createElement('div');
+			r.mount({ domNode: root });
+			assert.strictEqual(root.childNodes[0].data, 'dom1');
+			assert.strictEqual(root.childNodes[1].childNodes[0].data, 'dom2');
+			assert.strictEqual(root.childNodes[2].data, 'dom3');
+			assert.strictEqual(root.childNodes[3].data, 'dom3a');
+			assert.strictEqual(root.childNodes[4].data, 'dom4');
+			assert.strictEqual(root.childNodes[5].data, 'dom5');
+			assert.strictEqual(root.childNodes[6].data, 'dom6');
+		});
+
+		it('blah', () => {
+			const createWidget = widget({ theme });
+
+			const WidgetTwo = createWidget(({ middleware, properties }) => {
+				const theme = middleware.theme.get({ ' _key': 'key', root: 'foo', other: 'baz' });
+				console.log(theme);
+				debugger;
+				return v('div', ['dom2']);
+			});
+
+			const WidgetOne = createWidget(() => {
+				return WidgetTwo({
+					theme: {
+						key: {
+							root: 'bar'
+						}
+					}
+				});
+			});
+
+			const WidgetThree = createWidget(() => {
+				return ['dom3', 'dom3a'];
+			});
+
+			const WidgetFour = createWidget(() => {
+				return WidgetFive({});
+			});
+
+			const WidgetFive = createWidget(() => {
+				return WidgetSix({});
+			});
+
+			const WidgetSix = createWidget(() => {
+				return 'dom5';
+			});
+
+			const Parent = createWidget(() => {
+				return ['dom1', WidgetOne({}), WidgetThree({}), 'dom4', WidgetFour({}), 'dom6'];
+			});
+
+			const r = renderer(() => Parent({}));
 			const root: any = document.createElement('div');
 			r.mount({ domNode: root });
 			assert.strictEqual(root.childNodes[0].data, 'dom1');

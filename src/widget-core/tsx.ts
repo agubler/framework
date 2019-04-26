@@ -80,10 +80,11 @@ export function widget<T extends MiddlewareMap<any>, MiddlewareProps = T[keyof T
 	): WNodeFactory<{ properties: UnionToIntersection<Props & MiddlewareProps>; children: Children }> {
 		const factory = (properties: any, children?: any) => {
 			const result = w(callback as any, properties, children);
-			(result as any).middlewares = middlewares;
 			(callback as any).isWidget = true;
+			(callback as any).middlewares = middlewares;
 			return result;
 		};
+		factory.isFactory = true;
 		return factory as WNodeFactory<{
 			properties: UnionToIntersection<Props & MiddlewareProps>;
 			children: Children;
@@ -120,7 +121,7 @@ export function middleware<Props>() {
 			};
 		}
 		return {
-			callback
+			callback: middlewares
 		};
 	}
 
