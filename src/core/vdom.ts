@@ -1393,7 +1393,7 @@ export function renderer(renderer: () => RenderResult): Renderer {
 		_applicationQueue.reverse();
 		let item: ApplicationInstruction | undefined;
 		while ((item = _applicationQueue.pop())) {
-			if (item.type === 'create') {
+			if (item.type === 'create' && item.next.domNode) {
 				const {
 					parentDomNode,
 					next,
@@ -1431,17 +1431,15 @@ export function renderer(renderer: () => RenderResult): Renderer {
 					}
 				}
 				item.next.inserted = true;
-			} else if (item.type === 'update') {
+			} else if (item.type === 'update' && item.next.domNode) {
 				const {
 					next,
 					next: { domNode },
 					current
 				} = item;
-				if (domNode) {
-					const previousProperties = buildPreviousProperties(domNode, current);
-					processProperties(next, previousProperties);
-					runDeferredProperties(next);
-				}
+				const previousProperties = buildPreviousProperties(domNode, current);
+				processProperties(next, previousProperties);
+				runDeferredProperties(next);
 			} else if (item.type === 'delete') {
 				const { current } = item;
 				const { exitAnimation, exitAnimationActive } = current.node.properties;
