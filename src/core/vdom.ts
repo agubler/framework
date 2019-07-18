@@ -1045,7 +1045,7 @@ export function renderer(renderer: () => RenderResult): Renderer {
 		if (deferredPropertiesCallback) {
 			const properties = next.node.properties;
 			_deferredRenderCallbacks.push(() => {
-				if (_idToWrapperMap.has(next.owningId)) {
+				if (_idToWrapperMap.has(next.owningId) && next.domNode) {
 					const deferredProperties = next.deferredProperties;
 					next.deferredProperties = deferredPropertiesCallback(true);
 					processProperties(next, {
@@ -1437,9 +1437,11 @@ export function renderer(renderer: () => RenderResult): Renderer {
 					next: { domNode },
 					current
 				} = item;
-				const previousProperties = buildPreviousProperties(domNode, current);
-				processProperties(next, previousProperties);
-				runDeferredProperties(next);
+				if (domNode) {
+					const previousProperties = buildPreviousProperties(domNode, current);
+					processProperties(next, previousProperties);
+					runDeferredProperties(next);
+				}
 			} else if (item.type === 'delete') {
 				const { current } = item;
 				const { exitAnimation, exitAnimationActive } = current.node.properties;
