@@ -1,3 +1,4 @@
+import global from '../../shim/global';
 import { create, defer } from '../vdom';
 import cache from './cache';
 import icache from './icache';
@@ -13,8 +14,10 @@ export const block = blockFactory(({ middleware: { cache, icache, defer } }) => 
 			cache.set(module, moduleId);
 			const cachedValue = icache.getOrSet(`${moduleId}-${argsString}`, async () => {
 				const run = module(...args);
+				global.window.blocksPending = global.window.blocksPending ? global.window.blocksPending + 1 : 1;
 				defer.pause();
 				const result = await run;
+				global.window.blocksPending--;
 				defer.resume();
 				return result;
 			});

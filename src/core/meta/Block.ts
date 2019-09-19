@@ -1,3 +1,4 @@
+import global from '../../shim/global';
 import { Destroyable } from '../../core/Destroyable';
 import Map from '../../shim/Map';
 import WeakMap from '../../shim/WeakMap';
@@ -24,12 +25,14 @@ export class Block extends Destroyable implements MetaBase {
 			}
 			const result = module(...args);
 			if (result && typeof result.then === 'function') {
+				global.window.blocksPending = global.window.blocksPending ? global.window.blocksPending + 1 : 1;
 				result.then((result: any) => {
 					if (!valueMap) {
 						valueMap = new Map();
 						this._moduleMap.set(module, valueMap);
 					}
 					valueMap.set(argsString, result);
+					global.window.blocksPending--;
 					this._invalidate();
 				});
 				return null;
