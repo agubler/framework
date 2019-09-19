@@ -1294,6 +1294,7 @@ export function renderer(renderer: () => RenderResult): Renderer {
 			next: [nextWrapper],
 			meta: { mergeNodes: arrayFrom(domNode.childNodes) }
 		});
+		global.rendering = true;
 		_runProcessQueue();
 		_runDomInstructionQueue();
 		_cleanUpMergedNodes();
@@ -1310,6 +1311,7 @@ export function renderer(renderer: () => RenderResult): Renderer {
 		if (sync) {
 			_runInvalidationQueue();
 		} else if (!_renderScheduled) {
+			global.rendering = true;
 			_renderScheduled = global.requestAnimationFrame(() => {
 				_runInvalidationQueue();
 			});
@@ -1381,6 +1383,9 @@ export function renderer(renderer: () => RenderResult): Renderer {
 		_runDomInstructionQueue();
 		_cleanUpMergedNodes();
 		_runCallbacks();
+		if (!_renderScheduled) {
+			global.rendering = false;
+		}
 	}
 
 	function _cleanUpMergedNodes() {
