@@ -1,15 +1,20 @@
 const { registerSuite } = intern.getInterface('object');
 const { assert } = intern.getPlugin('chai');
+import { fetchCldrData } from '../support/util';
 import { getNumberFormatter } from '../../../src/i18n/number';
 import { getUnitFormatter, formatUnit } from '../../../src/i18n/unit';
-import '../support/cldr';
-import { setDefaultLocale, setSupportedLocales, setLocale } from '../../../src/i18n/i18n';
+import { switchLocale, systemLocale } from '../../../src/i18n/i18n';
 
 registerSuite('number units', {
-	before: async () => {
-		setDefaultLocale('en');
-		setSupportedLocales(['en', 'fr']);
-		await setLocale({ locale: 'en', default: true });
+	before() {
+		// Load the CLDR data for the locales used in the tests ('en' and 'fr');
+		return fetchCldrData(['en', 'fr']).then(() => {
+			switchLocale('en');
+		});
+	},
+
+	after() {
+		return switchLocale(systemLocale);
 	},
 
 	tests: {
@@ -32,24 +37,24 @@ registerSuite('number units', {
 			},
 
 			'assert with a locale'() {
-				assert.strictEqual(formatUnit(1, 'hour', 'fr'), '1 heure');
-				assert.strictEqual(formatUnit(1000, 'hour', 'fr'), '1 000 heures');
-				assert.strictEqual(formatUnit(1, 'hour', { form: 'long' }, 'fr'), '1 heure');
-				assert.strictEqual(formatUnit(1000, 'hour', { form: 'long' }, 'fr'), '1 000 heures');
-				assert.strictEqual(formatUnit(1, 'hour', { form: 'short' }, 'fr'), '1 h');
-				assert.strictEqual(formatUnit(1000, 'hour', { form: 'short' }, 'fr'), '1 000 h');
-				assert.strictEqual(formatUnit(1, 'hour', { form: 'narrow' }, 'fr'), '1h');
-				assert.strictEqual(formatUnit(1000, 'hour', { form: 'narrow' }, 'fr'), '1 000h');
+				assert.strictEqual(formatUnit(1, 'meter', 'fr'), '1 mètre');
+				assert.strictEqual(formatUnit(1000, 'meter', 'fr'), '1\u00A0000 mètres');
+				assert.strictEqual(formatUnit(1, 'meter', { form: 'long' }, 'fr'), '1 mètre');
+				assert.strictEqual(formatUnit(1000, 'meter', { form: 'long' }, 'fr'), '1\u00A0000 mètres');
+				assert.strictEqual(formatUnit(1, 'meter', { form: 'short' }, 'fr'), '1 m');
+				assert.strictEqual(formatUnit(1000, 'meter', { form: 'short' }, 'fr'), '1\u00A0000 m');
+				assert.strictEqual(formatUnit(1, 'meter', { form: 'narrow' }, 'fr'), '1m');
+				assert.strictEqual(formatUnit(1000, 'meter', { form: 'narrow' }, 'fr'), '1\u00A0000m');
 				assert.strictEqual(
 					formatUnit(
 						1000,
-						'hour',
+						'meter',
 						{
 							numberFormatter: getNumberFormatter({ useGrouping: false })
 						},
 						'fr'
 					),
-					'1000 heures'
+					'1000 mètres'
 				);
 			}
 		},
@@ -73,14 +78,14 @@ registerSuite('number units', {
 			},
 
 			'assert with a locale'() {
-				assert.strictEqual(getUnitFormatter('meter', 'fr')(1), '1 mètre');
-				assert.strictEqual(getUnitFormatter('meter', 'fr')(1000), '1 000 mètres');
-				assert.strictEqual(getUnitFormatter('meter', { form: 'long' }, 'fr')(1), '1 mètre');
-				assert.strictEqual(getUnitFormatter('meter', { form: 'long' }, 'fr')(1000), '1 000 mètres');
-				assert.strictEqual(getUnitFormatter('meter', { form: 'short' }, 'fr')(1), '1 m');
-				assert.strictEqual(getUnitFormatter('meter', { form: 'short' }, 'fr')(1000), '1 000 m');
+				assert.strictEqual(getUnitFormatter('meter', 'fr')(1), '1 mètre');
+				assert.strictEqual(getUnitFormatter('meter', 'fr')(1000), '1\u00A0000 mètres');
+				assert.strictEqual(getUnitFormatter('meter', { form: 'long' }, 'fr')(1), '1 mètre');
+				assert.strictEqual(getUnitFormatter('meter', { form: 'long' }, 'fr')(1000), '1\u00A0000 mètres');
+				assert.strictEqual(getUnitFormatter('meter', { form: 'short' }, 'fr')(1), '1 m');
+				assert.strictEqual(getUnitFormatter('meter', { form: 'short' }, 'fr')(1000), '1\u00A0000 m');
 				assert.strictEqual(getUnitFormatter('meter', { form: 'narrow' }, 'fr')(1), '1m');
-				assert.strictEqual(getUnitFormatter('meter', { form: 'narrow' }, 'fr')(1000), '1 000m');
+				assert.strictEqual(getUnitFormatter('meter', { form: 'narrow' }, 'fr')(1000), '1\u00A0000m');
 				assert.strictEqual(
 					getUnitFormatter(
 						'meter',
@@ -89,7 +94,7 @@ registerSuite('number units', {
 						},
 						'fr'
 					)(1000),
-					'1000 mètres'
+					'1000 mètres'
 				);
 			}
 		}

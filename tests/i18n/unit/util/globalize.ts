@@ -1,22 +1,33 @@
 import * as Globalize from 'globalize';
 import 'globalize/dist/globalize/date';
 import 'globalize/dist/globalize/relative-time';
-import '../../support/cldr';
 
 const { registerSuite } = intern.getInterface('object');
 const { assert } = intern.getPlugin('chai');
+import { fetchCldrData } from '../../support/util';
 import { DateFormatter, DateFormatterOptions, RelativeTimeFormatterOptions } from '../../../../src/i18n/date';
-import { globalizeDelegator } from '../../../../src/i18n/util/globalize';
-import { setDefaultLocale, setSupportedLocales, setLocale } from '../../../../src/i18n/i18n';
+import { switchLocale, systemLocale } from '../../../../src/i18n/i18n';
+import getGlobalize, { globalizeDelegator } from '../../../../src/i18n/util/globalize';
 
 registerSuite('util/globalize', {
-	before: async () => {
-		setDefaultLocale('en');
-		setSupportedLocales(['en', 'fr']);
-		await setLocale({ locale: 'en', default: true });
+	before() {
+		return fetchCldrData(['en', 'fr']).then(() => {
+			switchLocale('en');
+			switchLocale('en');
+		});
+	},
+
+	after() {
+		switchLocale(systemLocale);
 	},
 
 	tests: {
+		getGlobalize() {
+			assert.strictEqual(getGlobalize(), Globalize, 'The main globalize object is returned.');
+			assert.instanceOf(getGlobalize('fr'), Globalize, 'A Globalize instance is returned.');
+			assert.notEqual(getGlobalize('fr'), Globalize, 'The main globalize object is not returned.');
+		},
+
 		globalizeDelegator: {
 			'assert method that takes a value'() {
 				const locale = 'fr';

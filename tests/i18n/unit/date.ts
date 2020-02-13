@@ -9,8 +9,8 @@ import {
 	getRelativeTimeFormatter,
 	parseDate
 } from '../../../src/i18n/date';
-import '../support/cldr';
-import { setDefaultLocale, setSupportedLocales, setLocale } from '../../../src/i18n/i18n';
+import { switchLocale, systemLocale } from '../../../src/i18n/i18n';
+import { fetchCldrData } from '../support/util';
 
 function getOffsets(date: Date) {
 	const offset = date.getTimezoneOffset();
@@ -133,11 +133,17 @@ function getKeys<T extends DateOptionsKeys>(
 }
 
 registerSuite('date', {
-	before: async () => {
-		setDefaultLocale('en');
-		setSupportedLocales(['en', 'fr']);
-		await setLocale({ locale: 'en', default: true });
+	before() {
+		// Load the CLDR data for the locales used in the tests ('en' and 'fr');
+		return fetchCldrData(['en', 'fr']).then(() => {
+			switchLocale('en');
+		});
 	},
+
+	after() {
+		switchLocale(systemLocale);
+	},
+
 	tests: {
 		getDateFormatter: {
 			'assert without a locale'() {
