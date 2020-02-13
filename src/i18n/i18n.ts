@@ -72,9 +72,7 @@ const DOJO_PATH = 'dojo/{bundle}/lookup';
 
 let supportedLocales: string[] = [];
 let defaultLocale = '';
-// Set to `unknown` to support using default message bundles
-// without an application locale configured
-let computedLocale = 'unknown';
+let computedLocale = '';
 let currentLocale = '';
 let cldrLoaders: CldrLoaders = {};
 let bundleId = 0;
