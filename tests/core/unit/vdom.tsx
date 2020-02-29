@@ -1644,6 +1644,42 @@ jsdomDescribe('vdom', () => {
 			assert.strictEqual((div.childNodes[0]!.childNodes[0] as Text).data, 'Child One');
 		});
 
+		it('Should not reuse children that have been detached', () => {
+			let swap: any;
+			class Foo extends WidgetBase {
+				private _show = false;
+				constructor() {
+					super();
+					swap = () => {
+						this._show = !this._show;
+						this.invalidate();
+					};
+				}
+				render() {
+					return v('div', [
+						v('span', ['1']),
+						v('div', [this._show ? v('h2', [v('a', ['a link'])]) : v('h2')])
+					]);
+				}
+			}
+			const r = renderer(() => w(Foo, {}));
+			const domNode = document.createElement('div');
+			r.mount({ domNode });
+			assert.strictEqual(domNode.innerHTML, '<div><span>1</span><div><h2></h2></div></div>');
+			swap();
+			resolvers.resolveRAF();
+			assert.strictEqual(domNode.innerHTML, '<div><span>1</span><div><h2><a>a link</a></h2></div></div>');
+			swap();
+			resolvers.resolveRAF();
+			assert.strictEqual(domNode.innerHTML, '<div><span>1</span><div><h2></h2></div></div>');
+			swap();
+			resolvers.resolveRAF();
+			assert.strictEqual(domNode.innerHTML, '<div><span>1</span><div><h2><a>a link</a></h2></div></div>');
+			swap();
+			resolvers.resolveRAF();
+			assert.strictEqual(domNode.innerHTML, '<div><span>1</span><div><h2></h2></div></div>');
+		});
+
 		it('should always use the latest wrapper when processing removed nodes', () => {
 			let invalidateFoo: any;
 			let fooRenderCount = 0;
