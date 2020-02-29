@@ -2380,6 +2380,8 @@ export function renderer(renderer: () => RenderResult): Renderer {
 		} else if (next.node.children) {
 			children = renderedToWrapper(next.node.children, next, current);
 			_idToChildrenWrappers.set(next.id, children);
+		} else {
+			_idToChildrenWrappers.delete(next.id);
 		}
 		_wrapperSiblingMap.delete(current);
 		_idToWrapperMap.set(next.id, next);
