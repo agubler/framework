@@ -6,9 +6,21 @@ import Map from '../../shim/Map';
 import { from as arrayFrom } from '../../shim/array';
 import { isVNode, isWNode } from '../../core/vdom';
 import { Ignore } from '../assertionTemplate';
+import { Instruction } from '../harness';
 
 let widgetClassCounter = 0;
 const widgetMap = new WeakMap<Constructor<DefaultWidgetBaseInterface>, number>();
+
+const LINE_BREAK = '\n';
+const TAB = '\t';
+
+function formatTabs(depth = 0) {
+	let tabs = '';
+	for (let i = 0; i < depth; i++) {
+		tabs = `${tabs}${TAB}`;
+	}
+	return tabs;
+}
 
 function replacer(key: string, value: any): any {
 	if (typeof value === 'function') {
@@ -21,27 +33,26 @@ function replacer(key: string, value: any): any {
 	return value;
 }
 
-export function formatDNodes(nodes: DNode | DNode[], depth: number = 0): string {
+export function formatDNodes(nodes: DNode | DNode[], depth: number = 0, initialIndentation = true): string {
 	const isArrayFragment = Array.isArray(nodes) && depth === 0;
-	let initial = isArrayFragment ? '[\n' : '';
-	let tabs = '';
+	const tabs = formatTabs(depth);
+	let initial = isArrayFragment ? `[${LINE_BREAK}` : '';
 	depth = isArrayFragment ? 1 : depth;
 	nodes = Array.isArray(nodes) ? nodes : [nodes];
 
-	for (let i = 0; i < depth; i++) {
-		tabs = `${tabs}\t`;
-	}
 	let requiresCarriageReturn = false;
-	let formattedNode = nodes.reduce((result: string, node, index) => {
+	let formattedNode = nodes.reduce((result: string, node) => {
 		if (!node || node === true) {
 			return result;
 		}
 		if (requiresCarriageReturn) {
-			result = `${result}\n`;
+			result = `${result}${LINE_BREAK}`;
 		} else {
 			requiresCarriageReturn = true;
 		}
-		result = `${result}${tabs}`;
+		if (initialIndentation) {
+			result = `${result}${tabs}`;
+		}
 
 		if (typeof node === 'string') {
 			return `${result}"${node}"`;
@@ -51,14 +62,14 @@ export function formatDNodes(nodes: DNode | DNode[], depth: number = 0): string 
 			return `${result}"${node.text}"`;
 		}
 
-		result = `${result}${formatNode(node, tabs)}`;
+		result = `${result}${formatNode(node, tabs, depth)}`;
 		if (node.children && node.children.some((child) => !!child)) {
-			result = `${result}, [\n${formatDNodes(node.children, depth + 1)}\n${tabs}]`;
+			result = `${result}, [${LINE_BREAK}${formatDNodes(node.children, depth + 1)}${LINE_BREAK}${tabs}]`;
 		}
-		return `${result})`;
+		return isNode(node) ? `${result})` : result;
 	}, initial);
 
-	return isArrayFragment ? (formattedNode = `${formattedNode}\n]`) : formattedNode;
+	return isArrayFragment ? (formattedNode = `${formattedNode}${LINE_BREAK}]`) : formattedNode;
 }
 
 function formatProperties(properties: any, tabs: string): string {
@@ -68,7 +79,7 @@ function formatProperties(properties: any, tabs: string): string {
 			props[key] = properties[key];
 			return props;
 		}, {});
-	properties = JSON.stringify(properties, replacer, `${tabs}\t`).slice(0, -1);
+	properties = JSON.stringify(properties, replacer, `${tabs}${TAB}`).slice(0, -1);
 	return `${properties}${tabs}}`;
 }
 
@@ -90,9 +101,20 @@ function getWidgetName(widgetConstructor: any): string {
 	return name;
 }
 
-function formatNode(node: WNode | VNode, tabs: any): string {
-	if (!isVNode(node) && !isWNode(node)) {
-		return '';
+function formatNode(node: WNode | VNode, tabs: any, depth: number): string {
+	if (!isNode(node)) {
+		if (typeof node === 'object') {
+			let formattedChildren = Object.keys(node).reduce((formatted, key, index) => {
+				if (index !== 0) {
+					formatted = `${formatted}${LINE_BREAK}`;
+				}
+				return `${formatted}${tabs}${TAB}${key}: ${formatDNodes(node[key], depth + 1, false)}`;
+			}, `{${LINE_BREAK}`);
+			formattedChildren = formattedChildren ? `${formattedChildren}${LINE_BREAK}${tabs}}` : formattedChildren;
+			return formattedChildren;
+		} else {
+			return '';
+		}
 	}
 
 	const propertyKeyCount = Object.keys(node.properties).length;
@@ -107,7 +129,7 @@ function isNode(node: any): node is VNode | WNode {
 	return isVNode(node) || isWNode(node);
 }
 
-function decorate(actual: DNode | DNode[], expected: DNode | DNode[]): [DNode[], DNode[]] {
+function decorate(actual: any, expected: any, item?: Instruction): [DNode[], DNode[]] {
 	actual = Array.isArray(actual) ? actual : [actual];
 	expected = Array.isArray(expected) ? expected : [expected];
 	let actualDecoratedNodes = [];
@@ -117,8 +139,51 @@ function decorate(actual: DNode | DNode[], expected: DNode | DNode[]): [DNode[],
 		let actualNode = actual[i];
 		let expectedNode = expected[i];
 
+		if (typeof expectedNode === 'function') {
+			return [actual, expected];
+		}
+
+		if (expectedNode && typeof expectedNode === 'object' && !isNode(expectedNode)) {
+			const childObjectKeys = Object.keys(expectedNode);
+			let decoratedExpectedNodes: any = {};
+			let decoratedActualNodes: any = {};
+			for (let i = 0; i < childObjectKeys.length; i++) {
+				const key = childObjectKeys[i];
+				if (isNode(actualNode[key])) {
+					const result = decorate(actualNode[key], expectedNode[key], item);
+					decoratedActualNodes[key] = result[0][0];
+					decoratedExpectedNodes[key] = result[1][0];
+				} else {
+					decoratedActualNodes[key] = actualNode[key];
+					decoratedExpectedNodes[key] = expectedNode[key];
+				}
+			}
+			return [[decoratedActualNodes], [decoratedExpectedNodes]];
+		}
+
 		if (expectedNode && (expectedNode as any).widgetConstructor === Ignore) {
 			expectedNode = actualNode || expectedNode;
+		}
+
+		if (item && expectedNode && (expectedNode as any).id === item.wrapped.id) {
+			if (item.type === 'child') {
+				if (typeof item.params === 'object') {
+					const keys = Object.keys(expectedNode.children[0]);
+					for (let i = 0; i < keys.length; i++) {
+						const key = keys[i];
+						const newExpectedChildren = expectedNode.children[0][key]();
+						expectedNode.children[0][key] = newExpectedChildren;
+						if (
+							Array.isArray(actualNode.children) &&
+							actualNode.children[0] &&
+							typeof actualNode.children[0][key] === 'function'
+						) {
+							const newActualChildren = actualNode.children[0][key](...item.params[key]);
+							actualNode.children[0][key] = newActualChildren;
+						}
+					}
+				}
+			}
 		}
 
 		if (isNode(expectedNode)) {
@@ -127,10 +192,11 @@ function decorate(actual: DNode | DNode[], expected: DNode | DNode[]): [DNode[],
 				expectedNode.properties = (expectedNode as any).properties(actualProperties);
 			}
 		}
+
 		const childrenA = isNode(actualNode) ? actualNode.children : [];
 		const childrenB = isNode(expectedNode) ? expectedNode.children : [];
 
-		const [actualChildren, expectedChildren] = decorate(childrenA, childrenB);
+		const [actualChildren, expectedChildren] = decorate(childrenA, childrenB, item);
 		if (isNode(actualNode)) {
 			actualNode.children = actualChildren;
 		}
@@ -143,8 +209,17 @@ function decorate(actual: DNode | DNode[], expected: DNode | DNode[]): [DNode[],
 	return [actualDecoratedNodes, expectedDecoratedNodes];
 }
 
-export function assertRender(actual: DNode | DNode[], expected: DNode | DNode[], message?: string): void {
-	const [decoratedActual, decoratedExpected] = decorate(actual, expected);
+export function assertRender(actual: DNode | DNode[], expected: DNode | DNode[], queue: Instruction[]): void {
+	let decoratedActual = Array.isArray(actual) ? actual : [actual];
+	let decoratedExpected = Array.isArray(expected) ? expected : [expected];
+	if (queue.length) {
+		for (let i = 0; i < queue.length; i++) {
+			[decoratedActual, decoratedExpected] = decorate(decoratedActual, decoratedExpected, queue[i]);
+		}
+	} else {
+		[decoratedActual, decoratedExpected] = decorate(actual, expected);
+	}
+
 	const parsedActual = formatDNodes(Array.isArray(actual) ? decoratedActual : decoratedActual[0]);
 	const parsedExpected = formatDNodes(Array.isArray(expected) ? decoratedExpected : decoratedExpected[0]);
 	const diffResult = diff.diffLines(parsedActual, parsedExpected);

@@ -1,9 +1,19 @@
 import assertRender from './support/assertRender';
 import { decorateNodes, select } from './support/selector';
-import { WNode, DNode, Constructor, VNode, Callback, RenderResult, MiddlewareResultFactory } from '../core/interfaces';
+import {
+	WNode,
+	DNode,
+	Constructor,
+	VNode,
+	Callback,
+	RenderResult,
+	MiddlewareResultFactory,
+	WNodeFactory
+} from '../core/interfaces';
 import { WidgetBase } from '../core/WidgetBase';
 import { isWidgetFunction } from '../core/Registry';
-import { invalidator, diffProperty, destroy, create, propertiesDiff } from '../core/vdom';
+import { invalidator, diffProperty, destroy, create, propertiesDiff, w } from '../core/vdom';
+import { uuid } from '../core/util';
 
 export interface CustomComparator {
 	selector: string;
@@ -38,11 +48,33 @@ export interface GetRender {
 	(index?: number): DNode | DNode[];
 }
 
+export type InstructionType = 'child' | 'property';
+
+export type Wrapped<T> = T & { id: string };
+
+export interface Instruction {
+	type: InstructionType;
+	key?: string;
+	wrapped: Wrapped<any>;
+	params: any;
+}
+
+export interface Child {
+	<T extends WNodeFactory<{ properties: any; children: any }>>(
+		wrapped: Wrapped<T>,
+		prop: T['children'] extends { [index: string]: (...args: any[]) => RenderResult }
+			? { [P in keyof T['children']]: Parameters<T['children'][P]> }
+			: never
+	): void;
+}
+
 export interface HarnessAPI {
 	expect: Expect;
 	expectPartial: ExpectPartial;
 	trigger: Trigger;
 	getRender: GetRender;
+	child: Child;
+	[index: string]: any;
 }
 
 let middlewareId = 0;
@@ -53,6 +85,18 @@ interface HarnessOptions {
 }
 
 const factory = create();
+
+export function wrap<T>(node: T): Wrapped<T> {
+	const id = uuid();
+	const nodeFactory: any = (properties: any, children: any[]) => {
+		const b: any = w(node as any, properties, children);
+		b.id = id;
+		return b;
+	};
+	nodeFactory.id = id;
+	nodeFactory.isFactory = true;
+	return nodeFactory;
+}
 
 export function harness(renderFunc: () => WNode, options?: HarnessOptions): HarnessAPI;
 export function harness(renderFunc: () => WNode, customComparator?: CustomComparator[]): HarnessAPI;
@@ -66,6 +110,7 @@ export function harness(renderFunc: () => WNode, options: HarnessOptions | Custo
 	let children: any = [];
 	let customDiffs: any[] = [];
 	let customDiffNames: string[] = [];
+	let instructionQueue: Instruction[] = [];
 	let customComparator: CustomComparator[] = [];
 	let mockMiddleware: [
 		MiddlewareResultFactory<any, any, any, any>,
@@ -228,15 +273,20 @@ export function harness(renderFunc: () => WNode, options: HarnessOptions | Custo
 
 		const { nodes: expectedRenderResult } = decorateNodes(expectedRenderFunc());
 		_runCompares(expectedRenderResult, true);
+		const queue = [...instructionQueue];
+		instructionQueue = [];
 		if (selector) {
 			const [firstItem] = select(selector, renderResult);
-			assertRender(firstItem, expectedRenderResult);
+			assertRender(firstItem, expectedRenderResult, queue);
 		} else {
-			assertRender(renderResult, expectedRenderResult);
+			assertRender(renderResult, expectedRenderResult, queue);
 		}
 	}
 
 	return {
+		child(wrapped: any, params: any) {
+			instructionQueue.push({ wrapped, params, type: 'child' });
+		},
 		expect(expectedRenderFunc: ExpectedRender, actualRenderFunc?: ExpectedRender) {
 			return _expect(expectedRenderFunc, actualRenderFunc);
 		},
