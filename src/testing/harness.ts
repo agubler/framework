@@ -50,8 +50,6 @@ export interface GetRender {
 	(index?: number): DNode | DNode[];
 }
 
-export type InstructionType = 'child' | 'property';
-
 export type Wrapped<T> = T & { id: string };
 
 export interface ChildInstruction {
@@ -321,13 +319,11 @@ export function harness(renderFunc: () => WNode, options: HarnessOptions | Custo
 
 		const { nodes: expectedRenderResult } = decorateNodes(expectedRenderFunc());
 		_runCompares(expectedRenderResult, true);
-		const queue = [...instructionQueue];
-		instructionQueue = [];
 		if (selector) {
 			const [firstItem] = select(selector, renderResult);
-			assertRender(firstItem, expectedRenderResult, queue);
+			assertRender(firstItem, expectedRenderResult, instructionQueue);
 		} else {
-			assertRender(renderResult, expectedRenderResult, queue);
+			assertRender(renderResult, expectedRenderResult, instructionQueue);
 		}
 	}
 
