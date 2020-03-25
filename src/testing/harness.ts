@@ -8,12 +8,14 @@ import {
 	Callback,
 	RenderResult,
 	MiddlewareResultFactory,
-	WNodeFactory
+	WNodeFactory,
+	VNodeProperties
 } from '../core/interfaces';
 import { WidgetBase } from '../core/WidgetBase';
 import { isWidgetFunction } from '../core/Registry';
-import { invalidator, diffProperty, destroy, create, propertiesDiff, w } from '../core/vdom';
+import { invalidator, diffProperty, destroy, create, propertiesDiff, w, v } from '../core/vdom';
 import { uuid } from '../core/util';
+import { findIndex } from '../shim/array';
 
 export interface CustomComparator {
 	selector: string;
@@ -52,20 +54,61 @@ export type InstructionType = 'child' | 'property';
 
 export type Wrapped<T> = T & { id: string };
 
-export interface Instruction {
-	type: InstructionType;
-	key?: string;
+export interface ChildInstruction {
+	type: 'child';
 	wrapped: Wrapped<any>;
 	params: any;
 }
 
+export interface PropertyInstruction {
+	type: 'property';
+	key: string;
+	wrapped: Wrapped<any>;
+	params: any;
+}
+
+export type Instruction = ChildInstruction | PropertyInstruction;
+
 export interface Child {
 	<T extends WNodeFactory<{ properties: any; children: any }>>(
 		wrapped: Wrapped<T>,
-		prop: T['children'] extends { [index: string]: (...args: any[]) => RenderResult }
+		params: T['children'] extends { [index: string]: (...args: any[]) => RenderResult }
 			? { [P in keyof T['children']]: Parameters<T['children'][P]> }
-			: never
+			: T['children'] extends (...args: any[]) => RenderResult ? Parameters<T['children']> : never
 	): void;
+}
+
+export type KnownKeys<T> = { [K in keyof T]: string extends K ? never : number extends K ? never : K } extends {
+	[_ in keyof T]: infer U
+}
+	? U
+	: never;
+
+type FunctionPropertyNames<T> = { [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never }[keyof T];
+
+type RequiredVNodeProperties = Required<Pick<VNodeProperties, KnownKeys<VNodeProperties>>>;
+
+export interface Property {
+	<T extends WidgetBase<any, any>, K extends FunctionPropertyNames<T['properties']>>(
+		wrapped: Constructor<T>,
+		key: K,
+		params: Parameters<T['properties'][K]>
+	): void;
+	<
+		T extends WNodeFactory<{ properties: any; children: any }>,
+		K extends FunctionPropertyNames<
+			T['properties'] extends RequiredVNodeProperties ? RequiredVNodeProperties : T['properties']
+		>
+	>(
+		wrapped: T,
+		key: K,
+		params: Parameters<T['properties'][K]>
+	): void;
+	// <T extends string, K extends FunctionPropertyNames<RequiredVNodeProperties>>(
+	// 	wrapped: T,
+	// 	key: K,
+	// 	params?: any
+	// ): void;
 }
 
 export interface HarnessAPI {
@@ -74,7 +117,7 @@ export interface HarnessAPI {
 	trigger: Trigger;
 	getRender: GetRender;
 	child: Child;
-	[index: string]: any;
+	property: Property;
 }
 
 let middlewareId = 0;
@@ -86,12 +129,17 @@ interface HarnessOptions {
 
 const factory = create();
 
-export function wrap<T>(node: T): Wrapped<T> {
+export function wrap<T>(
+	node: T
+): T extends string
+	? Wrapped<WNodeFactory<{ properties: VNodeProperties; children: DNode | (DNode | DNode[])[] }>>
+	: Wrapped<T> {
 	const id = uuid();
 	const nodeFactory: any = (properties: any, children: any[]) => {
-		const b: any = w(node as any, properties, children);
-		b.id = id;
-		return b;
+		const dNode: any =
+			typeof node === 'string' ? v(node, properties, children) : w(node as any, properties, children);
+		dNode.id = id;
+		return dNode;
 	};
 	nodeFactory.id = id;
 	nodeFactory.isFactory = true;
@@ -285,7 +333,27 @@ export function harness(renderFunc: () => WNode, options: HarnessOptions | Custo
 
 	return {
 		child(wrapped: any, params: any) {
-			instructionQueue.push({ wrapped, params, type: 'child' });
+			const index = findIndex(
+				instructionQueue,
+				(instruction) => instruction.type === 'child' && instruction.wrapped === wrapped
+			);
+			if (index === -1) {
+				instructionQueue.push({ wrapped, params, type: 'child' });
+			} else {
+				instructionQueue[index] = { wrapped, params, type: 'child' };
+			}
+		},
+		property(wrapped: any, key: any, params: any) {
+			const index = findIndex(
+				instructionQueue,
+				(instruction) =>
+					instruction.type === 'property' && instruction.wrapped === wrapped && instruction.key === key
+			);
+			if (index === -1) {
+				instructionQueue.push({ wrapped, params, type: 'property', key });
+			} else {
+				instructionQueue[index] = { wrapped, params, type: 'property', key };
+			}
 		},
 		expect(expectedRenderFunc: ExpectedRender, actualRenderFunc?: ExpectedRender) {
 			return _expect(expectedRenderFunc, actualRenderFunc);

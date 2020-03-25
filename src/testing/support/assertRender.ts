@@ -129,6 +129,10 @@ function isNode(node: any): node is VNode | WNode {
 	return isVNode(node) || isWNode(node);
 }
 
+function isDNode(node: any): node is DNode {
+	return isVNode(node) || isWNode(node) || typeof node === 'string';
+}
+
 function decorate(actual: any, expected: any, item?: Instruction): [DNode[], DNode[]] {
 	actual = Array.isArray(actual) ? actual : [actual];
 	expected = Array.isArray(expected) ? expected : [expected];
@@ -167,7 +171,7 @@ function decorate(actual: any, expected: any, item?: Instruction): [DNode[], DNo
 
 		if (item && expectedNode && (expectedNode as any).id === item.wrapped.id) {
 			if (item.type === 'child') {
-				if (typeof item.params === 'object') {
+				if (typeof expectedNode.children[0] === 'object') {
 					const keys = Object.keys(expectedNode.children[0]);
 					for (let i = 0; i < keys.length; i++) {
 						const key = keys[i];
@@ -181,6 +185,24 @@ function decorate(actual: any, expected: any, item?: Instruction): [DNode[], DNo
 							const newActualChildren = actualNode.children[0][key](...item.params[key]);
 							actualNode.children[0][key] = newActualChildren;
 						}
+					}
+				} else if (typeof expectedNode.children[0] === 'function') {
+					const newExpectedChildren = expectedNode.children[0]();
+					expectedNode.children[0] = newExpectedChildren;
+					if (Array.isArray(actualNode.children) && typeof actualNode.children[0] === 'function') {
+						const newActualChildren = actualNode.children[0](...item.params);
+						actualNode.children[0] = newActualChildren;
+					}
+				}
+			} else {
+				const result = expectedNode.properties[item.key]();
+				if (isDNode(result) || (Array.isArray(result) && isNode(result[0]))) {
+					expectedNode.properties[item.key] = result;
+				}
+				if (actualNode.properties[item.key]) {
+					const actualResult = actualNode.properties[item.key](...item.params);
+					if (isDNode(actualResult) || (Array.isArray(actualResult) && isNode(actualResult[0]))) {
+						actualNode.properties[item.key] = actualResult;
 					}
 				}
 			}
@@ -209,7 +231,7 @@ function decorate(actual: any, expected: any, item?: Instruction): [DNode[], DNo
 	return [actualDecoratedNodes, expectedDecoratedNodes];
 }
 
-export function assertRender(actual: DNode | DNode[], expected: DNode | DNode[], queue: Instruction[]): void {
+export function assertRender(actual: DNode | DNode[], expected: DNode | DNode[], queue: Instruction[] = []): void {
 	let decoratedActual = Array.isArray(actual) ? actual : [actual];
 	let decoratedExpected = Array.isArray(expected) ? expected : [expected];
 	if (queue.length) {
