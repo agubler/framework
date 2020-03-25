@@ -129,10 +129,6 @@ function isNode(node: any): node is VNode | WNode {
 	return isVNode(node) || isWNode(node);
 }
 
-function isDNode(node: any): node is DNode {
-	return isVNode(node) || isWNode(node) || typeof node === 'string';
-}
-
 function decorate(actual: any, expected: any, item?: Instruction): [DNode[], DNode[]] {
 	actual = Array.isArray(actual) ? actual : [actual];
 	expected = Array.isArray(expected) ? expected : [expected];
@@ -194,17 +190,8 @@ function decorate(actual: any, expected: any, item?: Instruction): [DNode[], DNo
 						actualNode.children[0] = newActualChildren;
 					}
 				}
-			} else {
-				const result = expectedNode.properties[item.key]();
-				if (isDNode(result) || (Array.isArray(result) && isNode(result[0]))) {
-					expectedNode.properties[item.key] = result;
-				}
-				if (actualNode.properties[item.key]) {
-					const actualResult = actualNode.properties[item.key](...item.params);
-					if (isDNode(actualResult) || (Array.isArray(actualResult) && isNode(actualResult[0]))) {
-						actualNode.properties[item.key] = actualResult;
-					}
-				}
+			} else if (actualNode.properties[item.key]) {
+				actualNode.properties[item.key](...item.params);
 			}
 		}
 
