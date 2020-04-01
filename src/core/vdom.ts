@@ -385,12 +385,23 @@ export function w<W extends WidgetBaseTypes>(
 		widgetConstructorOrNode = widgetConstructorOrNode.widgetConstructor;
 	}
 
-	return {
-		children: children || [],
-		widgetConstructor: widgetConstructorOrNode,
-		properties,
-		type: WNODE
+	function nodeFunction() {
+		return nodeFunction;
+	}
+	nodeFunction.widgetConstructor = widgetConstructorOrNode;
+	nodeFunction.children = children || [];
+	nodeFunction.properties = properties;
+	nodeFunction.type = WNODE;
+	nodeFunction.toJSON = () => {
+		return {
+			widgetConstructorOrNode,
+			children: children || [],
+			properties,
+			type: WNODE
+		};
 	};
+
+	return nodeFunction;
 }
 
 /**
@@ -412,7 +423,7 @@ export function v(
 	children: undefined | DNode[] = undefined
 ): VNode {
 	let properties: VNodeProperties | DeferredVirtualProperties = propertiesOrChildren;
-	let deferredPropertiesCallback;
+	let deferredPropertiesCallback: DeferredVirtualProperties | undefined = undefined;
 
 	if (Array.isArray(propertiesOrChildren)) {
 		children = propertiesOrChildren;
@@ -435,13 +446,25 @@ export function v(
 		tag = tag.tag;
 	}
 
-	return {
-		tag,
-		deferredPropertiesCallback,
-		children,
-		properties,
-		type: VNODE
+	function nodeFunction() {
+		return nodeFunction;
+	}
+	nodeFunction.tag = tag;
+	nodeFunction.deferredPropertiesCallback = deferredPropertiesCallback;
+	nodeFunction.children = children;
+	nodeFunction.properties = properties;
+	nodeFunction.type = VNODE;
+	nodeFunction.toJSON = () => {
+		return {
+			tag,
+			deferredPropertiesCallback: deferredPropertiesCallback,
+			children,
+			properties,
+			type: VNODE
+		};
 	};
+
+	return nodeFunction;
 }
 
 /**
