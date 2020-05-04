@@ -1,7 +1,7 @@
 const { describe, it, afterEach, beforeEach } = intern.getInterface('bdd');
 const { assert } = intern.getPlugin('chai');
 import { sandbox } from 'sinon';
-import { createResource, createMemoryTemplate, defaultFilter } from '../../../src/core/resource';
+import { createResource, defaultFilter, createMemoryResourceTemplate } from '../../../src/core/resource';
 
 const sb = sandbox.create();
 
@@ -30,8 +30,8 @@ describe('resource', () => {
 	});
 
 	it('returns resource an associated data', () => {
-		const resource = createResource()({ data: [1, 2, 3] });
-		assert.hasAllKeys(resource.resource, [
+		const resource = createResource(createMemoryResourceTemplate());
+		assert.hasAllKeys(resource, [
 			'getOrRead',
 			'get',
 			'getTotal',
@@ -41,11 +41,10 @@ describe('resource', () => {
 			'isLoading',
 			'set'
 		]);
-		assert.deepEqual(resource.data, [1, 2, 3]);
 	});
 
 	it('provides an in-memory template by default', () => {
-		const resource = createResource();
+		const resource = createResource<{ value: number }>(createMemoryResourceTemplate());
 		resource.set([{ value: 1 }, { value: 2 }]);
 		assert.deepEqual(resource.get({}), [{ value: 1 }, { value: 2 }]);
 		assert.equal(resource.getTotal({}), 2);
@@ -181,7 +180,8 @@ describe('resource', () => {
 	});
 
 	it('Can use default filter with memory resource', () => {
-		const resource = createResource(createMemoryTemplate({ filter: defaultFilter }));
+		debugger;
+		const resource = createResource(createMemoryResourceTemplate({ filter: defaultFilter }));
 		resource.set([{ value: 'one' }, { value: 'two' }]);
 		assert.deepEqual(resource.get({}), [{ value: 'one' }, { value: 'two' }]);
 		assert.equal(resource.getTotal({}), 2);
@@ -193,7 +193,7 @@ describe('resource', () => {
 
 	it('Can provide a custom filter with memory resource', () => {
 		const resource = createResource<{ value: string }>(
-			createMemoryTemplate({
+			createMemoryResourceTemplate({
 				filter: (query, item) => {
 					if (item.value === 'two') {
 						return true;

@@ -4,7 +4,7 @@ const { assert } = intern.getPlugin('chai');
 import { renderer, tsx, create } from '../../../../src/core/vdom';
 import { createDataMiddleware } from '../../../../src/core/middleware/data';
 import { createResolvers } from '../../support/util';
-import { createResource, createMemoryTemplate, defaultFilter } from '../../../../src/core/resource';
+import { defaultFilter, createMemoryResourceTemplate, createResourceTemplate } from '../../../../src/core/resource';
 import icache from '../../../../src/core/middleware/icache';
 
 const resolvers = createResolvers();
@@ -26,10 +26,10 @@ jsdomDescribe('data middleware', () => {
 			return <div>{JSON.stringify(get(getOptions()))}</div>;
 		});
 
-		const resource = createResource<{ hello: string }>();
+		const memoryTemplate = createMemoryResourceTemplate<{ hello: string }>();
 
 		const App = create()(() => {
-			return <Widget resource={resource({ data: [{ hello: '1' }] })} />;
+			return <Widget resource={memoryTemplate({ data: [{ hello: '1' }] })} />;
 		});
 
 		const r = renderer(() => <App />);
@@ -50,10 +50,10 @@ jsdomDescribe('data middleware', () => {
 			return <div>{JSON.stringify(get(getOptions()))}</div>;
 		});
 
-		const resource = createResource<{ hello: string }>();
+		const template = createMemoryResourceTemplate<{ hello: string }>();
 
 		const App = create()(() => {
-			return <Widget resource={resource({ data: [{ hello: '1' }, { hello: '2' }] })} />;
+			return <Widget resource={template({ data: [{ hello: '1' }, { hello: '2' }] })} />;
 		});
 
 		const r = renderer(() => <App />);
@@ -79,12 +79,12 @@ jsdomDescribe('data middleware', () => {
 			);
 		});
 
-		const resource = createResource<{ wrong: string }>();
+		const template = createMemoryResourceTemplate<{ wrong: string }>();
 
 		const App = create()(() => {
 			return (
 				<Widget
-					resource={resource({ transform: { hello: 'wrong' }, data: [{ wrong: '1' }, { wrong: '2' }] })}
+					resource={template({ transform: { hello: 'wrong' }, data: [{ wrong: '1' }, { wrong: '2' }] })}
 				/>
 			);
 		});
@@ -106,14 +106,12 @@ jsdomDescribe('data middleware', () => {
 			return <div>{JSON.stringify(getOrRead(getOptions()))}</div>;
 		});
 
-		const resource = createResource<{ wrong: string; foo: string }>(
-			createMemoryTemplate({ filter: defaultFilter })
-		);
+		const memoryTemplate = createMemoryResourceTemplate<{ wrong: string; foo: string }>({ filter: defaultFilter });
 
 		const App = create()(() => {
 			return (
 				<Widget
-					resource={resource({
+					resource={memoryTemplate({
 						transform: { hello: 'wrong' },
 						data: [{ wrong: '1', foo: '1' }, { wrong: '2', foo: '1' }, { wrong: '2', foo: '2' }]
 					})}
@@ -137,11 +135,11 @@ jsdomDescribe('data middleware', () => {
 			return <div>{JSON.stringify(getOrRead(getOptions()))}</div>;
 		});
 
-		const resource = createResource<{ wrong: number }>();
+		const template = createMemoryResourceTemplate<{ wrong: number }>();
 
 		const App = create()(() => {
 			return (
-				<Widget resource={resource({ transform: { hello: 'wrong' }, data: [{ wrong: 1 }, { wrong: 2 }] })} />
+				<Widget resource={template({ transform: { hello: 'wrong' }, data: [{ wrong: 1 }, { wrong: 2 }] })} />
 			);
 		});
 
@@ -157,7 +155,7 @@ jsdomDescribe('data middleware', () => {
 		});
 		const factory = create({ data: createDataMiddleware<{ hello: string }>() });
 
-		const resource = createResource<{ hello: string }>({
+		const template = createResourceTemplate<{ hello: string }>({
 			read: () => {
 				return promise;
 			}
@@ -174,7 +172,7 @@ jsdomDescribe('data middleware', () => {
 		});
 
 		const App = create()(() => {
-			return <Widget resource={resource()} />;
+			return <Widget resource={template()} />;
 		});
 
 		const r = renderer(() => <App />);
@@ -194,7 +192,7 @@ jsdomDescribe('data middleware', () => {
 		});
 		const factory = create({ data: createDataMiddleware<{ hello: string }>() });
 
-		const resource = createResource<{ hello: string }>({
+		const template = createResourceTemplate<{ hello: string }>({
 			read: () => {
 				return promise;
 			}
@@ -215,7 +213,7 @@ jsdomDescribe('data middleware', () => {
 		});
 
 		const App = create()(() => {
-			return <Widget resource={resource()} />;
+			return <Widget resource={template()} />;
 		});
 
 		const r = renderer(() => <App />);
@@ -234,7 +232,7 @@ jsdomDescribe('data middleware', () => {
 
 	it('should be able to share basic resource across between widgets', () => {
 		const factory = create({ data: createDataMiddleware<{ hello: string }>() });
-		const resource = createResource<{ hello: string }>();
+		const template = createMemoryResourceTemplate<{ hello: string }>();
 
 		const WidgetOne = factory(({ middleware: { data } }) => {
 			const { setOptions, getOptions } = data();
@@ -266,7 +264,7 @@ jsdomDescribe('data middleware', () => {
 		});
 
 		const App = create()(() => {
-			return <Parent resource={resource({ data: [{ hello: 'world' }, { hello: 'world again' }] })} />;
+			return <Parent resource={template({ data: [{ hello: 'world' }, { hello: 'world again' }] })} />;
 		});
 
 		const r = renderer(() => <App />);
@@ -286,7 +284,7 @@ jsdomDescribe('data middleware', () => {
 
 	it('should be force unique instance of resource when using reset', () => {
 		const factory = create({ data: createDataMiddleware<{ hello: string }>() });
-		const resource = createResource<{ hello: string }>();
+		const template = createMemoryResourceTemplate<{ hello: string }>();
 
 		const WidgetOne = factory(({ middleware: { data } }) => {
 			const { setOptions, getOptions } = data();
@@ -318,7 +316,7 @@ jsdomDescribe('data middleware', () => {
 		});
 
 		const App = create()(() => {
-			return <Parent resource={resource({ data: [{ hello: 'world' }, { hello: 'world again' }] })} />;
+			return <Parent resource={template({ data: [{ hello: 'world' }, { hello: 'world again' }] })} />;
 		});
 
 		const r = renderer(() => <App />);
@@ -338,7 +336,7 @@ jsdomDescribe('data middleware', () => {
 
 	it('should be able to share search query across widgets', () => {
 		const factory = create({ data: createDataMiddleware<{ hello: string }>() });
-		const resource = createResource<{ hello: string }>(createMemoryTemplate({ filter: defaultFilter }));
+		const template = createMemoryResourceTemplate({ filter: defaultFilter });
 
 		const WidgetOne = factory(({ middleware: { data } }) => {
 			const { setOptions, getOptions } = data();
@@ -371,7 +369,7 @@ jsdomDescribe('data middleware', () => {
 		});
 
 		const App = create()(() => {
-			return <Parent resource={resource({ data: [{ hello: 'world' }, { hello: 'world again' }] })} />;
+			return <Parent resource={template({ data: [{ hello: 'world' }, { hello: 'world again' }] })} />;
 		});
 
 		const r = renderer(() => <App />);
@@ -391,7 +389,7 @@ jsdomDescribe('data middleware', () => {
 
 	it('should update the data in the resource', () => {
 		const factory = create({ data: createDataMiddleware<{ hello: string }>() });
-		const resource = createResource<{ hello: string }>(createMemoryTemplate({ filter: defaultFilter }));
+		const template = createMemoryResourceTemplate({ filter: defaultFilter });
 
 		const WidgetOne = factory(({ middleware: { data } }) => {
 			const { getOrRead, setOptions, getOptions } = data();
@@ -410,7 +408,7 @@ jsdomDescribe('data middleware', () => {
 							icache.set('data', [{ hello: 'mars' }, { hello: 'venus' }]);
 						}}
 					/>
-					<WidgetOne resource={resource({ data })} />
+					<WidgetOne resource={template({ data })} />
 				</div>
 			);
 		});
@@ -432,7 +430,7 @@ jsdomDescribe('data middleware', () => {
 
 	it('should destroy resources when widget is removed', () => {
 		const factory = create({ data: createDataMiddleware<{ hello: string }>() });
-		const resource = createResource<{ hello: string }>(createMemoryTemplate({ filter: defaultFilter }));
+		const template = createMemoryResourceTemplate({ filter: defaultFilter });
 		let renderCount = 0;
 		let callSetOptions: any;
 		const WidgetOne = factory(({ middleware: { data } }) => {
@@ -454,7 +452,7 @@ jsdomDescribe('data middleware', () => {
 							icache.set<boolean>('show', (value) => !value);
 						}}
 					/>
-					{show && <WidgetOne resource={resource({ data: [{ hello: 'world' }, { hello: 'moon' }] })} />}
+					{show && <WidgetOne resource={template({ data: [{ hello: 'world' }, { hello: 'moon' }] })} />}
 				</div>
 			);
 		});

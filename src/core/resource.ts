@@ -10,14 +10,7 @@ export interface ResourceOptions {
 
 export type ResourceQuery = { keys: string; value: string | undefined };
 
-export interface Resource<S = {}, T = {}> {
-	(options?: { data?: S[] }): { resource: Resource<S, T>; transform?: any; data?: S[]; type: 'RESOURCE' };
-	<T>(options: { transform: TransformConfig<T, S>; data?: S[] }): {
-		resource: Resource<any, any>;
-		transform: TransformConfig<T, S>;
-		data?: S[];
-		type: 'RESOURCE';
-	};
+export interface Resource<S = {}> {
 	getOrRead(options: ResourceOptions): any;
 	get(options: ResourceOptions): any;
 	getTotal(options: ResourceOptions): number | undefined;
@@ -41,22 +34,33 @@ export interface ReadOptions {
 type Putter<S> = (start: number, data: S[]) => void;
 type Getter<S> = (query?: ResourceQuery[]) => S[];
 
-export type DataResponse<S> = { data: S[]; total: number };
-export type DataResponsePromise<S> = Promise<{ data: S[]; total: number }>;
-export type DataFetcher<S> = (
+export type ResourceResponse<S> = { data: S[]; total: number };
+export type ResourceResponsePromise<S> = Promise<ResourceResponse<S>>;
+export type ResourceFetcher<S> = (
 	options: ReadOptions,
 	put: Putter<S>,
 	get: Getter<S>
-) => DataResponse<S> | DataResponsePromise<S>;
+) => ResourceResponse<S> | ResourceResponsePromise<S>;
 
-export interface DataTemplate<S = {}> {
-	read: DataFetcher<S>;
+export interface ResourceTemplate<S = {}, R = {}> {
+	read: ResourceFetcher<S>;
+}
+
+export interface ResourceTemplateFactory<S = {}, T = {}> {
+	(options?: { data?: S[] }): { template: ResourceTemplate<S, T>; transform?: any; data?: S[]; type: 'TEMPLATE' };
+	<T>(options: { transform: TransformConfig<T, S>; data?: S[] }): {
+		template: ResourceTemplate<any, any>;
+		transform: TransformConfig<T, S>;
+		data?: S[];
+		type: 'TEMPLATE';
+	};
+	read: ResourceFetcher<S>;
 }
 
 type Status = 'LOADING' | 'FAILED';
 type InvalidatorMaps = { [key in SubscriptionType]: Map<string, Set<Invalidator>> };
 
-function isAsyncResponse<S>(response: any): response is DataResponsePromise<S> {
+function isAsyncResponse<S>(response: any): response is ResourceResponsePromise<S> {
 	return response.then !== undefined;
 }
 
@@ -73,20 +77,36 @@ export function defaultFilter(queries: ResourceQuery[], item: any) {
 	return true;
 }
 
-export function createMemoryTemplate<S = void>({
+export function createMemoryResourceTemplate<S = void>({
 	filter
-}: { filter?: (query: ResourceQuery[], v: S) => boolean } = {}): DataTemplate<S> {
-	return {
+}: { filter?: (query: ResourceQuery[], v: S) => boolean } = {}): ResourceTemplateFactory<S> {
+	return createResourceTemplate({
 		read: ({ query }, put, get) => {
 			let data: any[] = get();
 			const filteredData = filter && query ? data.filter((i) => filter(query, i)) : data;
 			put(0, filteredData);
 			return { data: filteredData, total: filteredData.length };
 		}
-	};
+	});
 }
 
-export function createResource<S = any>(config: DataTemplate<S> = createMemoryTemplate<S>()): Resource<S> {
+export function createResourceTemplate<S = void>(
+	resourceTemplate: ResourceTemplate<S> = createMemoryResourceTemplate<S>()
+): ResourceTemplateFactory<S> {
+	const resourceTemplateFactory: any = (options: { transform?: TransformConfig<any, S>; data?: S[] } = {}) => {
+		const { data, transform } = options;
+		return {
+			template: resourceTemplate,
+			data,
+			transform,
+			type: 'TEMPLATE'
+		};
+	};
+	resourceTemplateFactory.read = resourceTemplate.read;
+	return resourceTemplateFactory;
+}
+
+export function createResource<S = any>(config: ResourceTemplate<S>): Resource<S> {
 	const { read } = config;
 	let queryMap = new Map<string, S[]>();
 	let statusMap = new Map<string, { [key: string]: Status }>();
@@ -311,26 +331,17 @@ export function createResource<S = any>(config: DataTemplate<S> = createMemoryTe
 		}
 	}
 
-	function resource(options: { transform?: any; data?: any[] } = {}) {
-		const { data, transform } = options;
-		return {
-			resource,
-			data,
-			transform,
-			type: 'RESOURCE'
-		};
-	}
-	resource.getOrRead = getOrRead;
-	resource.get = get;
-	resource.getTotal = getTotal;
-	resource.subscribe = subscribe;
-	resource.unsubscribe = unsubscribe;
-	resource.isFailed = isFailed;
-	resource.isLoading = isLoading;
-	resource.set = function set(data: S[]) {
-		setData(0, data, data.length);
-		totalMap.set(getQueryKey(), data.length);
+	return {
+		getOrRead,
+		get,
+		getTotal,
+		subscribe,
+		unsubscribe,
+		isFailed,
+		isLoading,
+		set: function set(data: S[]) {
+			setData(0, data, data.length);
+			totalMap.set(getQueryKey(), data.length);
+		}
 	};
-
-	return resource as Resource<any>;
 }

@@ -1,5 +1,12 @@
 import { create, invalidator, destroy, diffProperty } from '../vdom';
-import { Resource, ResourceOptions, ResourceQuery, TransformConfig } from '../resource';
+import {
+	Resource,
+	ResourceOptions,
+	ResourceQuery,
+	TransformConfig,
+	ResourceTemplate,
+	createResource
+} from '../resource';
 import { Invalidator } from '../interfaces';
 import { auto } from '../diff';
 
@@ -17,7 +24,7 @@ export interface OptionsWrapper {
 }
 
 export interface ResourceWrapper<R = {}, T = {}> {
-	resource: Resource<R, T>;
+	resource: Resource<R>;
 	createOptionsWrapper(): OptionsWrapper;
 	transform?: TransformConfig<T, any>;
 	type: 'WRAPPER';
@@ -25,10 +32,10 @@ export interface ResourceWrapper<R = {}, T = {}> {
 
 export type ResourceWithData<T = {}> = T extends infer R
 	? {
-			resource: Resource<R, T>;
+			template: ResourceTemplate<R, T>;
 			transform?: TransformConfig<T, any>;
 			data?: any[];
-			type: 'RESOURCE';
+			type: 'TEMPLATE';
 	  }
 	: any;
 
@@ -69,7 +76,7 @@ function createOptionsWrapper(): OptionsWrapper {
 }
 
 function createResourceWrapper(
-	resource: Resource<any, any>,
+	resource: Resource<any>,
 	transform?: any,
 	options?: OptionsWrapper
 ): ResourceWrapper<any, any> {
@@ -81,14 +88,8 @@ function createResourceWrapper(
 	};
 }
 
-function isResourceWithData<R, T>(
-	resource: ResourceWithData<T> | ResourceWrapper<R, T>
-): resource is ResourceWithData<T> {
-	return resource && resource.type === 'RESOURCE';
-}
-
-function isResourceWrapper<R, T>(resource: any): resource is ResourceWrapper<R, T> {
-	return Boolean(resource && resource.type === 'WRAPPER');
+function isTemplate<R, T>(resource: ResourceWithData<T> | ResourceWrapper<R, T>): resource is ResourceWithData<T> {
+	return resource && resource.type === 'TEMPLATE';
 }
 
 function createResourceOptions(options: Options, resource: ResourceWithData | ResourceWrapper): ResourceOptions {
@@ -150,6 +151,7 @@ export function createDataMiddleware<T = void>() {
 	const factory = create({ invalidator, destroy, diffProperty }).properties<DataProperties<T>>();
 
 	const data = factory(({ middleware: { invalidator, destroy, diffProperty }, properties }) => {
+		const resourceWrapperMap = new Map<ResourceTemplate, ResourceWrapper<T, T>>();
 		const optionsWrapperMap = new Map<Resource, Map<string, OptionsWrapper>>();
 		destroy(() => {
 			[...optionsWrapperMap.keys()].forEach((resource) => {
@@ -158,36 +160,28 @@ export function createDataMiddleware<T = void>() {
 		});
 
 		diffProperty('resource', properties, ({ resource: currentResource }, { resource: nextResource }) => {
-			if (isResourceWithData(currentResource) && isResourceWithData(nextResource)) {
-				const result = auto(currentResource.data, nextResource.data);
-				if (result.changed) {
+			if (isTemplate(nextResource)) {
+				const current = isTemplate<{}, T>(currentResource) ? currentResource : ({} as ResourceWithData<T>);
+				let wrapper =
+					resourceWrapperMap.get(nextResource.template) ||
+					createResourceWrapper(createResource(nextResource.template), nextResource.transform);
+				const { changed } = auto(current.data, nextResource.data);
+				if (current.template !== nextResource.template || changed) {
+					resourceWrapperMap.delete(current.template);
 					invalidator();
 				}
+				wrapper.resource.set(nextResource.data || []);
+				resourceWrapperMap.set(nextResource.template, wrapper);
+				return wrapper as any;
 			}
-			return nextResource;
 		});
 
 		return (dataOptions: DataInitializerOptions = {}) => {
 			function getResource() {
-				return dataOptions.resource || (properties().resource as ResourceWithData | ResourceWrapper);
+				return properties().resource as ResourceWrapper;
 			}
-			let passedResourceProperty = getResource();
-			const { transform } = passedResourceProperty;
-
-			if (isResourceWithData(passedResourceProperty)) {
-				const { resource, data } = passedResourceProperty;
-				if (data) {
-					resource.set(data);
-				}
-			}
-
-			let resourceWrapper: ResourceWrapper<any, any>;
-
-			if (isResourceWrapper(passedResourceProperty)) {
-				resourceWrapper = passedResourceProperty;
-			} else {
-				resourceWrapper = createResourceWrapper(passedResourceProperty.resource, transform);
-			}
+			let resourceWrapper = getResource();
+			const { transform } = resourceWrapper;
 
 			if (dataOptions.reset) {
 				resourceWrapper = createResourceWrapper(resourceWrapper.resource, transform);
