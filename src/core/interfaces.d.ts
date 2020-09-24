@@ -3,8 +3,6 @@ import { Bundle, Messages } from '../i18n/i18n';
 import { Destroyable } from '../core/Destroyable';
 import { Evented, EventType, EventObject } from '../core/Evented';
 import Map from '../shim/Map';
-import WeakMap from '../shim/WeakMap';
-import { RegistryHandler } from './RegistryHandler';
 
 /**
  * Generic constructor type
@@ -25,18 +23,6 @@ export type EventHandlerResult = boolean | void;
 
 export interface EventHandler {
 	(event?: Event): EventHandlerResult;
-}
-
-export interface FocusEventHandler {
-	(event?: FocusEvent): EventHandlerResult;
-}
-
-export interface KeyboardEventHandler {
-	(event?: KeyboardEvent): EventHandlerResult;
-}
-
-export interface MouseEventHandler {
-	(event?: MouseEvent): EventHandlerResult;
 }
 
 /**
@@ -366,6 +352,53 @@ export interface AriaAttributes {
 	'aria-valuetext'?: string;
 }
 
+interface PointerEventHandler<E extends EventTarget = EventTarget> {
+	(event: PointerEvent<E>): void | boolean;
+}
+
+interface MouseEventHandler<E extends EventTarget = EventTarget> {
+	(event: MouseEvent<E>): void | boolean;
+}
+
+interface DojoEventHandler<E extends EventTarget = EventTarget> {
+	(event: DojoEvent<E>): void | boolean;
+}
+
+interface KeyboardEventHandler<E extends EventTarget = EventTarget> {
+	(event: KeyboardEvent<E>): void | boolean;
+}
+
+interface UIEventHandler<E extends EventTarget = EventTarget> {
+	(event: UIEvent<E>): void | boolean;
+}
+
+interface FocusEventHandler<E extends EventTarget = EventTarget> {
+	(event: FocusEvent<E>): void | boolean;
+}
+
+interface WheelEventHandler<E extends EventTarget = EventTarget> {
+	(event: WheelEvent<E>): void | boolean;
+}
+
+interface TouchEventHandler<E extends EventTarget = EventTarget> {
+	(event: TouchEvent<E>): void | boolean;
+}
+
+interface TouchEventHandlerWithOptions<E extends EventTarget = EventTarget> {
+	handler: TouchEventHandler<E>;
+}
+
+export type VNodePropertiesWheelEventHandler<E extends EventTarget = EventTarget> = WheelEventHandler<E>;
+export type VNodePropertiesMouseEventHandler<E extends EventTarget = EventTarget> = MouseEventHandler<E>;
+export type VNodePropertiesFocusEventHandler<E extends EventTarget = EventTarget> = FocusEventHandler<E>;
+export type VNodePropertiesUIEventHandler<E extends EventTarget = EventTarget> = UIEventHandler<E>;
+export type VNodePropertiesKeyboardEventHandler<E extends EventTarget = EventTarget> = KeyboardEventHandler<E>;
+export type VNodePropertiesEventHandler<E extends EventTarget = EventTarget> = DojoEventHandler<E>;
+export type VNodePropertiesPointerEventHandler<E extends EventTarget = EventTarget> = PointerEventHandler<E>;
+export type VNodePropertiesTouchEventHandler<E extends EventTarget = EventTarget> =
+	| TouchEventHandlerWithOptions<E>
+	| TouchEventHandler<E>;
+
 export interface VNodeProperties<T extends EventTarget = EventTarget> extends AriaAttributes {
 	enterAnimation?: SupportedClassName;
 
@@ -391,21 +424,21 @@ export interface VNodeProperties<T extends EventTarget = EventTarget> extends Ar
 	readonly styles?: Partial<CSSStyleDeclaration>;
 
 	// Pointer Events
-	onpointermove?(ev: PointerEvent<T>): boolean | void;
-	onpointerdown?(ev: PointerEvent<T>): boolean | void;
-	onpointerup?(ev: PointerEvent<T>): boolean | void;
-	onpointerover?(ev: PointerEvent<T>): boolean | void;
-	onpointerout?(ev: PointerEvent<T>): boolean | void;
-	onpointerenter?(ev: PointerEvent<T>): boolean | void;
-	onpointerleave?(ev: PointerEvent<T>): boolean | void;
-	onpointercancel?(ev: PointerEvent<T>): boolean | void;
+	onpointermove?: VNodePropertiesPointerEventHandler<T>;
+	onpointerdown?: VNodePropertiesPointerEventHandler<T>;
+	onpointerup?: VNodePropertiesPointerEventHandler<T>;
+	onpointerover?: VNodePropertiesPointerEventHandler<T>;
+	onpointerout?: VNodePropertiesPointerEventHandler<T>;
+	onpointerenter?: VNodePropertiesPointerEventHandler<T>;
+	onpointerleave?: VNodePropertiesPointerEventHandler<T>;
+	onpointercancel?: VNodePropertiesPointerEventHandler<T>;
 	// For Pointer Event Polyfill see: https://github.com/jquery/PEP
 	readonly 'touch-action'?: string;
 	// From Element
-	ontouchcancel?(ev: TouchEvent<T>): boolean | void;
-	ontouchend?(ev: TouchEvent<T>): boolean | void;
-	ontouchmove?(ev: TouchEvent<T>): boolean | void;
-	ontouchstart?(ev: TouchEvent<T>): boolean | void;
+	ontouchcancel?: VNodePropertiesTouchEventHandler<T>;
+	ontouchend?: VNodePropertiesTouchEventHandler<T>;
+	ontouchmove?: VNodePropertiesTouchEventHandler<T>;
+	ontouchstart?: VNodePropertiesTouchEventHandler<T>;
 	// From HTMLFormElement
 	readonly action?: string;
 	readonly encoding?: string;
@@ -414,26 +447,26 @@ export interface VNodeProperties<T extends EventTarget = EventTarget> extends Ar
 	readonly name?: string;
 	readonly target?: string;
 	// From HTMLElement
-	onblur?(ev: FocusEvent<T>): boolean | void;
-	onchange?(ev: DojoEvent<T>): boolean | void;
-	onclick?(ev: MouseEvent<T>): boolean | void;
-	ondblclick?(ev: MouseEvent<T>): boolean | void;
-	onfocus?(ev: FocusEvent<T>): boolean | void;
-	oninput?(ev: DojoEvent<T>): boolean | void;
-	onkeydown?(ev: KeyboardEvent<T>): boolean | void;
-	onkeypress?(ev: KeyboardEvent<T>): boolean | void;
-	onkeyup?(ev: KeyboardEvent<T>): boolean | void;
-	onload?(ev: DojoEvent<T>): boolean | void;
-	onmousedown?(ev: MouseEvent<T>): boolean | void;
-	onmouseenter?(ev: MouseEvent<T>): boolean | void;
-	onmouseleave?(ev: MouseEvent<T>): boolean | void;
-	onmousemove?(ev: MouseEvent<T>): boolean | void;
-	onmouseout?(ev: MouseEvent<T>): boolean | void;
-	onmouseover?(ev: MouseEvent<T>): boolean | void;
-	onmouseup?(ev: MouseEvent<T>): boolean | void;
-	onmousewheel?(ev: WheelEvent<T>): boolean | void;
-	onscroll?(ev: UIEvent<T>): boolean | void;
-	onsubmit?(ev: DojoEvent<T>): boolean | void;
+	onblur?: VNodePropertiesFocusEventHandler<T>;
+	onchange?: VNodePropertiesEventHandler<T>;
+	onclick?: undefined | VNodePropertiesMouseEventHandler<T>;
+	ondblclick?: VNodePropertiesMouseEventHandler<T>;
+	onfocus?: VNodePropertiesFocusEventHandler<T>;
+	oninput?: VNodePropertiesEventHandler<T>;
+	onkeydown?: VNodePropertiesKeyboardEventHandler<T>;
+	onkeypress?: VNodePropertiesKeyboardEventHandler<T>;
+	onkeyup?: VNodePropertiesKeyboardEventHandler<T>;
+	onload?: VNodePropertiesEventHandler<T>;
+	onmousedown?: VNodePropertiesMouseEventHandler<T>;
+	onmouseenter?: VNodePropertiesMouseEventHandler<T>;
+	onmouseleave?: VNodePropertiesMouseEventHandler<T>;
+	onmousemove?: VNodePropertiesMouseEventHandler<T>;
+	onmouseout?: VNodePropertiesMouseEventHandler<T>;
+	onmouseover?: VNodePropertiesMouseEventHandler<T>;
+	onmouseup?: VNodePropertiesMouseEventHandler<T>;
+	onmousewheel?: VNodePropertiesWheelEventHandler<T>;
+	onscroll?: VNodePropertiesUIEventHandler<T>;
+	onsubmit?: VNodePropertiesEventHandler<T>;
 	readonly spellcheck?: boolean;
 	readonly tabIndex?: number;
 	readonly disabled?: boolean;
