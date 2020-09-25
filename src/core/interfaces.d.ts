@@ -28,30 +28,30 @@ export interface EventHandler {
 /**
  * Cannot extend the global due to TS error: `All declarations of 'target' must have identical modifiers.`
  */
-export interface DojoEvent<T extends EventTarget = EventTarget> extends Event {
+export interface DojoEvent<T extends EventTarget | null = EventTarget | null> extends Event {
 	target: T;
 }
 
 declare global {
-	interface MouseEvent<T extends EventTarget = EventTarget> {
+	interface MouseEvent<T extends EventTarget | null = EventTarget | null> {
 		target: T;
 	}
-	interface PointerEvent<T extends EventTarget = EventTarget> {
+	interface PointerEvent<T extends EventTarget | null = EventTarget | null> {
 		target: T;
 	}
-	interface TouchEvent<T extends EventTarget = EventTarget> {
+	interface TouchEvent<T extends EventTarget | null = EventTarget | null> {
 		target: T;
 	}
-	interface KeyboardEvent<T extends EventTarget = EventTarget> {
+	interface KeyboardEvent<T extends EventTarget | null = EventTarget | null> {
 		target: T;
 	}
-	interface FocusEvent<T extends EventTarget = EventTarget> {
+	interface FocusEvent<T extends EventTarget | null = EventTarget | null> {
 		target: T;
 	}
-	interface UIEvent<T extends EventTarget = EventTarget> {
+	interface UIEvent<T extends EventTarget | null = EventTarget | null> {
 		target: T;
 	}
-	interface WheelEvent<T extends EventTarget = EventTarget> {
+	interface WheelEvent<T extends EventTarget | null = EventTarget | null> {
 		target: T;
 	}
 }
@@ -352,77 +352,106 @@ export interface AriaAttributes {
 	'aria-valuetext'?: string;
 }
 
-interface PointerEventHandler<E extends EventTarget = EventTarget> {
+interface PointerEventHandler<E extends EventTarget | null = EventTarget | null> {
 	(event: PointerEvent<E>): void | boolean;
 }
 
-interface MouseEventHandler<E extends EventTarget = EventTarget> {
+interface MouseEventHandler<E extends EventTarget | null = EventTarget | null> {
 	(event: MouseEvent<E>): void | boolean;
 }
 
-interface DojoEventHandler<E extends EventTarget = EventTarget> {
+interface DojoEventHandler<E extends EventTarget | null = EventTarget | null> {
 	(event: DojoEvent<E>): void | boolean;
 }
 
-interface KeyboardEventHandler<E extends EventTarget = EventTarget> {
+interface KeyboardEventHandler<E extends EventTarget | null = EventTarget | null> {
 	(event: KeyboardEvent<E>): void | boolean;
 }
 
-interface UIEventHandler<E extends EventTarget = EventTarget> {
+interface UIEventHandler<E extends EventTarget | null = EventTarget | null> {
 	(event: UIEvent<E>): void | boolean;
 }
 
-interface FocusEventHandler<E extends EventTarget = EventTarget> {
+interface FocusEventHandler<E extends EventTarget | null = EventTarget | null> {
 	(event: FocusEvent<E>): void | boolean;
 }
 
-interface WheelEventHandler<E extends EventTarget = EventTarget> {
+interface WheelEventHandler<E extends EventTarget | null = EventTarget | null> {
 	(event: WheelEvent<E>): void | boolean;
 }
 
-interface TouchEventHandler<E extends EventTarget = EventTarget> {
+interface TouchEventHandler<E extends EventTarget | null = EventTarget | null> {
 	(event: TouchEvent<E>): void | boolean;
 }
 
-interface TouchEventHandlerWithOptions<E extends EventTarget = EventTarget> {
+interface TouchEventHandlerWithOptions<E extends EventTarget | null = EventTarget | null> {
 	handler: TouchEventHandler<E>;
 }
 
-export type VNodePropertiesWheelEventHandler<E extends EventTarget = EventTarget> = WheelEventHandler<E>;
-export type VNodePropertiesMouseEventHandler<E extends EventTarget = EventTarget> = MouseEventHandler<E>;
-export type VNodePropertiesFocusEventHandler<E extends EventTarget = EventTarget> = FocusEventHandler<E>;
-export type VNodePropertiesUIEventHandler<E extends EventTarget = EventTarget> = UIEventHandler<E>;
-export type VNodePropertiesKeyboardEventHandler<E extends EventTarget = EventTarget> = KeyboardEventHandler<E>;
-export type VNodePropertiesEventHandler<E extends EventTarget = EventTarget> = DojoEventHandler<E>;
-export type VNodePropertiesPointerEventHandler<E extends EventTarget = EventTarget> = PointerEventHandler<E>;
-export type VNodePropertiesTouchEventHandler<E extends EventTarget = EventTarget> =
+interface MouseEventHandlerWithOptions<E extends EventTarget | null = EventTarget | null> {
+	handler: MouseEventHandler<E>;
+}
+
+interface WheelEventHandlerWithOptions<E extends EventTarget | null = EventTarget | null> {
+	handler: WheelEventHandler<E>;
+}
+
+interface PointerEventHandlerWithOptions<E extends EventTarget | null = EventTarget | null> {
+	handler: PointerEventHandler<E>;
+}
+
+interface DojoEventHandlerWithOptions<E extends EventTarget | null = EventTarget | null> {
+	handler: DojoEventHandler<E>;
+}
+
+interface KeyboardEventHandlerWithOptions<E extends EventTarget | null = EventTarget | null> {
+	handler: KeyboardEventHandler<E>;
+}
+
+interface UIEventHandlerWithOptions<E extends EventTarget | null = EventTarget | null> {
+	handler: UIEventHandler<E>;
+}
+
+interface FocusEventHandlerWithOptions<E extends EventTarget | null = EventTarget | null> {
+	handler: FocusEventHandler<E>;
+}
+
+export type VNodePropertiesWheelEventHandler<E extends EventTarget | null = EventTarget | null> =
+	| WheelEventHandler<E>
+	| WheelEventHandlerWithOptions<E>;
+export type VNodePropertiesMouseEventHandler<E extends EventTarget | null = EventTarget | null> =
+	| MouseEventHandler<E>
+	| MouseEventHandlerWithOptions<E>;
+export type VNodePropertiesFocusEventHandler<E extends EventTarget | null = EventTarget | null> =
+	| FocusEventHandler<E>
+	| FocusEventHandlerWithOptions<E>;
+export type VNodePropertiesUIEventHandler<E extends EventTarget | null = EventTarget | null> =
+	| UIEventHandler<E>
+	| UIEventHandlerWithOptions<E>;
+export type VNodePropertiesKeyboardEventHandler<E extends EventTarget | null = EventTarget | null> =
+	| KeyboardEventHandler<E>
+	| KeyboardEventHandlerWithOptions<E>;
+export type VNodePropertiesEventHandler<E extends EventTarget | null = EventTarget | null> =
+	| DojoEventHandler<E>
+	| DojoEventHandlerWithOptions<E>;
+export type VNodePropertiesPointerEventHandler<E extends EventTarget | null = EventTarget | null> =
+	| PointerEventHandler<E>
+	| PointerEventHandlerWithOptions<E>;
+export type VNodePropertiesTouchEventHandler<E extends EventTarget | null = EventTarget | null> =
 	| TouchEventHandlerWithOptions<E>
 	| TouchEventHandler<E>;
 
-export interface VNodeProperties<T extends EventTarget = EventTarget> extends AriaAttributes {
-	enterAnimation?: SupportedClassName;
+export type VNodeHandlers =
+	| VNodePropertiesMouseEventHandler
+	| VNodePropertiesWheelEventHandler
+	| VNodePropertiesTouchEventHandler
+	| VNodePropertiesPointerEventHandler
+	| VNodePropertiesEventHandler
+	| VNodePropertiesKeyboardEventHandler
+	| VNodePropertiesUIEventHandler
+	| VNodePropertiesFocusEventHandler;
 
-	exitAnimation?: SupportedClassName;
-
-	enterAnimationActive?: SupportedClassName;
-
-	exitAnimationActive?: SupportedClassName;
-
-	/**
-	 * Used to uniquely identify a DOM node among siblings.
-	 * A key is required when there are more children with the same selector and these children are added or removed dynamically.
-	 * NOTE: this does not have to be a string or number, a [[Component]] Object for instance is also possible.
-	 */
-	readonly key?: string | number;
-	/**
-	 * An array of supported class names to be added to classList on a DOM node
-	 */
-	readonly classes?: SupportedClassName | SupportedClassName[];
-	/**
-	 * An object literal like `{height:'100px'}` which allows styles to be changed dynamically. All values must be strings.
-	 */
-	readonly styles?: Partial<CSSStyleDeclaration>;
-
+export interface VNodeEvents<T extends EventTarget | null = EventTarget | null> {
 	// Pointer Events
 	onpointermove?: VNodePropertiesPointerEventHandler<T>;
 	onpointerdown?: VNodePropertiesPointerEventHandler<T>;
@@ -432,24 +461,9 @@ export interface VNodeProperties<T extends EventTarget = EventTarget> extends Ar
 	onpointerenter?: VNodePropertiesPointerEventHandler<T>;
 	onpointerleave?: VNodePropertiesPointerEventHandler<T>;
 	onpointercancel?: VNodePropertiesPointerEventHandler<T>;
-	// For Pointer Event Polyfill see: https://github.com/jquery/PEP
-	readonly 'touch-action'?: string;
-	// From Element
-	ontouchcancel?: VNodePropertiesTouchEventHandler<T>;
-	ontouchend?: VNodePropertiesTouchEventHandler<T>;
-	ontouchmove?: VNodePropertiesTouchEventHandler<T>;
-	ontouchstart?: VNodePropertiesTouchEventHandler<T>;
-	// From HTMLFormElement
-	readonly action?: string;
-	readonly encoding?: string;
-	readonly enctype?: string;
-	readonly method?: string;
-	readonly name?: string;
-	readonly target?: string;
-	// From HTMLElement
 	onblur?: VNodePropertiesFocusEventHandler<T>;
 	onchange?: VNodePropertiesEventHandler<T>;
-	onclick?: undefined | VNodePropertiesMouseEventHandler<T>;
+	onclick?: VNodePropertiesMouseEventHandler<T>;
 	ondblclick?: VNodePropertiesMouseEventHandler<T>;
 	onfocus?: VNodePropertiesFocusEventHandler<T>;
 	oninput?: VNodePropertiesEventHandler<T>;
@@ -467,6 +481,45 @@ export interface VNodeProperties<T extends EventTarget = EventTarget> extends Ar
 	onmousewheel?: VNodePropertiesWheelEventHandler<T>;
 	onscroll?: VNodePropertiesUIEventHandler<T>;
 	onsubmit?: VNodePropertiesEventHandler<T>;
+	ontouchcancel?: VNodePropertiesTouchEventHandler<T>;
+	ontouchend?: VNodePropertiesTouchEventHandler<T>;
+	ontouchmove?: VNodePropertiesTouchEventHandler<T>;
+	ontouchstart?: VNodePropertiesTouchEventHandler<T>;
+}
+
+export interface VNodeProperties<T extends EventTarget | null = EventTarget | null>
+	extends VNodeEvents<T>,
+		AriaAttributes {
+	enterAnimation?: SupportedClassName;
+	exitAnimation?: SupportedClassName;
+	enterAnimationActive?: SupportedClassName;
+	exitAnimationActive?: SupportedClassName;
+
+	/**
+	 * Used to uniquely identify a DOM node among siblings.
+	 * A key is required when there are more children with the same selector and these children are added or removed dynamically.
+	 * NOTE: this does not have to be a string or number, a [[Component]] Object for instance is also possible.
+	 */
+	readonly key?: string | number;
+	/**
+	 * An array of supported class names to be added to classList on a DOM node
+	 */
+	readonly classes?: SupportedClassName | SupportedClassName[];
+	/**
+	 * An object literal like `{height:'100px'}` which allows styles to be changed dynamically. All values must be strings.
+	 */
+	readonly styles?: Partial<CSSStyleDeclaration>;
+	// For Pointer Event Polyfill see: https://github.com/jquery/PEP
+	readonly 'touch-action'?: string;
+	// From Element
+	// From HTMLFormElement
+	readonly action?: string;
+	readonly encoding?: string;
+	readonly enctype?: string;
+	readonly method?: string;
+	readonly name?: string;
+	readonly target?: string;
+	// From HTMLElement
 	readonly spellcheck?: boolean;
 	readonly tabIndex?: number;
 	readonly disabled?: boolean;

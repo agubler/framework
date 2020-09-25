@@ -51,7 +51,9 @@ class MyWidget extends WidgetBase {
 
 	// prettier-ignore
 	protected render() {
-		return v('div', { classes: ['root', 'other'], onclick: this._otherOnClick }, [
+		return v('div', { classes: ['root', 'other'], onclick: {
+			handler: this._otherOnClick
+		 } }, [
 			v('span', {
 				key: 'span',
 				classes: 'span',
@@ -81,7 +83,7 @@ describe('test renderer', () => {
 	describe('widget with a single top level DNode', () => {
 		it('expect', () => {
 			const baseAssertion = assertion(() =>
-				v('div', { classes: ['root', 'other'], onclick: () => {} }, [
+				v('div', { classes: ['root', 'other'], onclick: { handler: () => {} } }, [
 					v(
 						'span',
 						{ key: 'span', classes: 'span', style: 'width: 100px', id: 'random-id', onclick: () => {} },
@@ -111,7 +113,7 @@ describe('test renderer', () => {
 		it('trigger property of wrapped node', () => {
 			const WrappedDiv = wrap('div');
 			const baseTemplate = assertion(() =>
-				v(WrappedDiv.tag, { classes: ['root', 'other'], onclick: () => {} }, [
+				v(WrappedDiv.tag, { classes: ['root', 'other'], onclick: { handler: () => {} } }, [
 					v(
 						'span',
 						{ key: 'span', classes: 'span', style: 'width: 100px', id: 'random-id', onclick: () => {} },
@@ -128,7 +130,7 @@ describe('test renderer', () => {
 			r.property(WrappedDiv, 'onclick');
 			r.expect(
 				assertion(() =>
-					v(WrappedDiv.tag, { classes: ['root', 'other'], onclick: () => {} }, [
+					v(WrappedDiv.tag, { classes: ['root', 'other'], onclick: { handler: () => {} } }, [
 						v(
 							'span',
 							{ key: 'span', classes: 'span', style: 'width: 100px', id: 'random-id', onclick: () => {} },
@@ -143,7 +145,7 @@ describe('test renderer', () => {
 			r.property(WrappedDiv, 'onclick', [100]);
 			r.expect(
 				assertion(() =>
-					v('div', { classes: ['root', 'other'], onclick: () => {} }, [
+					v('div', { classes: ['root', 'other'], onclick: { handler: () => {} } }, [
 						v(
 							'span',
 							{ key: 'span', classes: 'span', style: 'width: 100px', id: 'random-id', onclick: () => {} },
@@ -194,7 +196,7 @@ describe('test renderer', () => {
 		it('trigger property of wrapped widget', () => {
 			const WrappedChild = wrap(ChildWidget);
 			const baseTemplate = assertion(() =>
-				v('div', { classes: ['root', 'other'], onclick: () => {} }, [
+				v('div', { classes: ['root', 'other'], onclick: { handler: () => {} } }, [
 					v(
 						'span',
 						{ key: 'span', classes: 'span', style: 'width: 100px', id: 'random-id', onclick: () => {} },
@@ -210,7 +212,7 @@ describe('test renderer', () => {
 			r.property(WrappedChild, 'func');
 			r.expect(
 				assertion(() =>
-					v('div', { classes: ['root', 'other'], onclick: () => {} }, [
+					v('div', { classes: ['root', 'other'], onclick: { handler: () => {} } }, [
 						v(
 							'span',
 							{ key: 'span', classes: 'span', style: 'width: 100px', id: 'random-id', onclick: () => {} },
@@ -225,7 +227,7 @@ describe('test renderer', () => {
 			r.property(WrappedChild, 'func');
 			r.expect(
 				assertion(() =>
-					v('div', { classes: ['root', 'other'], onclick: () => {} }, [
+					v('div', { classes: ['root', 'other'], onclick: { handler: () => {} } }, [
 						v(
 							'span',
 							{ key: 'span', classes: 'span', style: 'width: 100px', id: 'random-id', onclick: () => {} },
