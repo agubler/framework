@@ -1157,6 +1157,49 @@ describe('Resources Middleware', () => {
 			'<div><div>[[{"value":"page 1"}],[{"value":"page 2"}],[{"value":"page 3"}],[{"value":"page 4"}],[{"value":"page 5"}]]</div><div>2</div></div>'
 		);
 	});
+
+	describe('save', () => {
+		it('save', () => {
+			const root = document.createElement('div');
+			const factory = create({ resource: createResourceMiddleware<{ hello: string }>() });
+
+			const Widget = factory(({ id, properties, middleware: { resource } }) => {
+				const { save, getOrRead, createOptions } = resource;
+				const {
+					resource: { template }
+				} = properties();
+				const options = createOptions(id);
+				const [items] = getOrRead(template, options());
+				return (
+					<div
+						onclick={() => {
+							const [items] = getOrRead(template, options());
+							const [item] = items;
+							save(template, { id: item.id, item: { hello: '2' } });
+						}}
+					>
+						{JSON.stringify(items)}
+					</div>
+				);
+			});
+
+			const template = createMemoryResourceTemplate<{ hello: string }>();
+
+			const App = create({ resource: createResourceMiddleware() })(({ id, middleware: { resource } }) => {
+				return (
+					<Widget resource={resource({ template, initOptions: { data: [{ hello: '1', id: '1' }], id } })} />
+				);
+			});
+
+			const r = renderer(() => <App />);
+			r.mount({ domNode: root });
+			assert.strictEqual(root.innerHTML, '<div>[{"hello":"1","id":"1"}]</div>');
+			(root.children[0] as any).click();
+			resolvers.resolveRAF();
+			assert.strictEqual(root.innerHTML, '<div>[{"hello":"2","id":"1"}]</div>');
+		});
+	});
+
 	describe('find', () => {
 		it('should return undefined if the query does not match any items', () => {
 			const root = document.createElement('div');

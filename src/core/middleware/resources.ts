@@ -4,10 +4,11 @@ import { create, diffProperty, invalidator, destroy } from '../vdom';
 import { Invalidator } from '../interfaces';
 import { isThenable } from '../../shim/Promise';
 import { auto } from '../diff';
+import { uuid } from '../util';
 
 // Resource General
 
-type SubscriptionType = 'read' | 'find' | 'meta' | 'loading' | 'failed';
+type SubscriptionType = 'save' | 'read' | 'find' | 'meta' | 'loading' | 'failed';
 type InvalidatorMaps = { [key in SubscriptionType]: Map<string, Set<Invalidator>> };
 type StatusType = 'LOADING' | 'FAILED';
 type ResourceQuery<S> = { [P in keyof S]?: any };
@@ -21,6 +22,9 @@ interface Options<S> {
 	(options?: Partial<ResourceOptions<S>>): ResourceOptions<S>;
 	options: any;
 }
+
+export interface ResourceSaveOptions<S> {}
+
 export interface ResourceFindOptions<S> {
 	options: ResourceOptions<S>;
 	query: ResourceQuery<S>;
@@ -66,7 +70,10 @@ export interface ResourceMeta {
 }
 
 export interface ResourceGet<RESOURCE> {
-	(request?: Partial<ResourceReadRequest<RESOURCE>>): ResourceReadResponse<RESOURCE>;
+	(request: string): RESOURCE;
+	(request: Partial<ResourceReadRequest<RESOURCE>>): ResourceReadResponse<RESOURCE>;
+	(): ResourceReadResponse<RESOURCE>;
+	// (request?: Partial<ResourceReadRequest<RESOURCE>>): ResourceReadResponse<RESOURCE>;
 }
 export interface ResourcePut<RESOURCE> {
 	(readResponse: ResourceReadResponse<RESOURCE>, readRequest: ResourceReadRequest<RESOURCE>): void;
@@ -94,17 +101,20 @@ export interface ResourceInit<RESOURCE, INIT> {
 interface ResourceTemplate<RESOURCE = {}, MIDDLEWARE = {}> {
 	read: ResourceRead<RESOURCE>;
 	find: ResourceFind<RESOURCE>;
+	save?: any;
 }
 
 interface ResourceTemplateWithInit<RESOURCE = {}, INIT = any, MIDDLEWARE = {}> {
 	init: ResourceInit<RESOURCE, INIT>;
 	read: ResourceRead<RESOURCE>;
 	find: ResourceFind<RESOURCE>;
+	save?: any;
 }
 
 // Resource Interfaces
 
 export interface Resource<S = {}> {
+	save(options: any): any;
 	find(options: ResourceFindOptions<S>): ResourceFindResult<S> | undefined;
 	getOrRead(options: ResourceOptions<S>): (undefined | S[])[];
 	meta(options: ResourceOptions<S>, read: boolean): ResourceMeta | undefined;
@@ -219,7 +229,7 @@ interface ResourceMiddleware<MIDDLEWARE = {}> {
 		template: ResourceTemplateWithInit<RESOURCE, INIT> & { type: 'init' },
 		options: ResourceOptions<any>,
 		initOptions: INIT & { id: string }
-	): RESOURCE[][];
+	): (RESOURCE & { id: string })[][];
 	getOrRead<T extends ResourceTemplate<any, any>>(
 		template: {
 			template: T;
@@ -227,16 +237,30 @@ interface ResourceMiddleware<MIDDLEWARE = {}> {
 			data?: any;
 		},
 		options: ResourceOptions<any>
-	): T extends ResourceTemplate<infer RESOURCE> ? RESOURCE[][] : void;
+	): T extends ResourceTemplate<infer RESOURCE> ? (RESOURCE & { id: string })[][] : void;
+	save<RESOURCE>(template: ResourceTemplate<RESOURCE> & { type: 'standard' }, options: ResourceSaveOptions<any>): any;
+	save<RESOURCE, INIT>(
+		template: ResourceTemplateWithInit<RESOURCE, INIT> & { type: 'init' },
+		options: ResourceSaveOptions<any>,
+		initOptions: INIT & { id: string }
+	): any;
+	save<T extends ResourceTemplate<any, any>>(
+		template: {
+			template: T;
+			transform?: any;
+			data?: any;
+		},
+		options: ResourceSaveOptions<any>
+	): any;
 	find<RESOURCE>(
 		template: ResourceTemplate<RESOURCE> & { type: 'standard' },
 		options: ResourceFindOptions<any>
-	): ResourceFindResult<RESOURCE> | undefined;
+	): ResourceFindResult<RESOURCE & { id: string }> | undefined;
 	find<RESOURCE, INIT>(
 		template: ResourceTemplateWithInit<RESOURCE, INIT> & { type: 'init' },
 		options: ResourceFindOptions<any>,
 		initOptions: INIT & { id: string }
-	): ResourceFindResult<RESOURCE> | undefined;
+	): ResourceFindResult<RESOURCE & { id: string }> | undefined;
 	find<T extends ResourceTemplate<any, any>>(
 		template: {
 			template: T;
@@ -244,7 +268,7 @@ interface ResourceMiddleware<MIDDLEWARE = {}> {
 			data?: any;
 		},
 		options: ResourceFindOptions<any>
-	): T extends ResourceTemplate<infer RESOURCE> ? ResourceFindResult<RESOURCE> | undefined : void;
+	): T extends ResourceTemplate<infer RESOURCE> ? ResourceFindResult<RESOURCE & { id: string }> | undefined : void;
 	meta<RESOURCE>(
 		template: ResourceTemplate<RESOURCE> & { type: 'standard' },
 		options: ResourceOptions<any>,
@@ -315,9 +339,11 @@ export function createResourceTemplateWithInit<RESOURCE = void, INIT = never>(
 
 export function createMemoryResourceTemplate<RESOURCE = void>(): ResourceTemplateWithInit<
 	RESOURCE,
-	{ data: RESOURCE[] }
+	{ data: (RESOURCE & { id?: string })[] }
 > & { type: 'init' } {
-	return { ...memoryTemplate } as ResourceTemplateWithInit<RESOURCE, { data: RESOURCE[] }> & { type: 'init' };
+	return { ...memoryTemplate } as ResourceTemplateWithInit<RESOURCE, { data: (RESOURCE & { id?: string })[] }> & {
+		type: 'init';
+	};
 }
 
 export function defaultFilter(query: ResourceQuery<any>, item: any, type: string = 'contains') {
@@ -370,6 +396,11 @@ export function defaultFind(request: ResourceFindRequest<any>, { put, get }: Res
 export const memoryTemplate: ResourceTemplateWithInit<any, { data: any }> = Object.freeze({
 	init: ({ data }, { put }) => {
 		put({ data, total: data.length }, { offset: 0, size: 30, query: {} });
+	},
+	save: (request: any, { put, get }: any) => {
+		const cachedItem = get(request.id);
+		put({ ...cachedItem, ...request.item, id: cachedItem.id }, request);
+		// put({ data: filteredData.slice(offset, offset + size), total: filteredData.length }, request);
 	},
 	read: (request, { get, put }) => {
 		const { data } = get();
@@ -433,6 +464,10 @@ function isFindOptions(options: any): options is ResourceFindOptions<any> {
 
 function isFindRequest(options: any): options is ResourceFindRequest<any> {
 	return isFindOptions(options);
+}
+
+function isSaveRequest(options: any): options is { id: string } {
+	return Boolean(options && options.id && options.item);
 }
 
 function isFindResponse(options: any): options is ResourceFindResponse<any> {
@@ -501,7 +536,8 @@ function createResource<S = never, T extends ResourceInitOptions = ResourceInitO
 	template: ResourceTemplate<S> | ResourceTemplateWithInit<S>,
 	initOptions?: T
 ): Resource<S> {
-	const dataMap = new Map<string, S[]>();
+	const idMap = new Map<any, any>();
+	const dataMap = new Map<any, any>();
 	const metaMap = new Map<string, ResourceMeta>();
 	const statusMap = new Map<string, StatusType>();
 	const findMap = new Map<string, undefined | ResourceFindResult<S>>();
@@ -511,11 +547,19 @@ function createResource<S = never, T extends ResourceInitOptions = ResourceInitO
 		find: new Map<string, Set<Invalidator>>(),
 		meta: new Map<string, Set<Invalidator>>(),
 		failed: new Map<string, Set<Invalidator>>(),
-		loading: new Map<string, Set<Invalidator>>()
+		loading: new Map<string, Set<Invalidator>>(),
+		save: new Map<string, Set<Invalidator>>()
 	};
-	const { read, find } = template;
+	const { read, find, save } = template;
 
-	function get(request: Partial<ResourceReadRequest<S>> = {}) {
+	function get(request: Partial<ResourceReadRequest<S>>): ResourceReadResponse<S>;
+	function get(request: string): S;
+	function get(): ResourceReadResponse<S>;
+	function get(request: string | Partial<ResourceReadRequest<S>> = {}): any {
+		if (typeof request === 'string') {
+			// const dataKey = (request);
+			return dataMap.get(request);
+		}
 		const dataKey = getDataKey(request);
 		const data = dataMap.get(dataKey) || [];
 		return { data, total: data.length };
@@ -523,12 +567,12 @@ function createResource<S = never, T extends ResourceInitOptions = ResourceInitO
 
 	function put(response: ResourceReadResponse<S>, request: ResourceReadRequest<S>): void;
 	function put(response: ResourceFindResponse<S> | undefined, request: ResourceFindRequest<S>): void;
-	function put(
-		response: ResourceReadResponse<S> | ResourceFindResponse<S> | undefined,
-		request: ResourceReadRequest<S> | ResourceFindRequest<S>
-	) {
+	function put(response: S, request: { id: string }): void;
+	function put(response: any, request: any) {
 		if (isFindRequest(request) && (isFindResponse(response) || !response)) {
 			setFind(response, request);
+		} else if (isSaveRequest(request)) {
+			dataMap.set(request.id, response);
 		} else if (!isFindRequest(request) && !isFindResponse(response) && response) {
 			setData(response, request);
 		}
@@ -663,20 +707,22 @@ function createResource<S = never, T extends ResourceInitOptions = ResourceInitO
 		const { data, total } = response;
 		const { size, offset, query } = request;
 		const dataKey = getDataKey(request);
-		const cachedData = dataMap.get(dataKey) || [];
+		const cachedIds = idMap.get(dataKey) || [];
 		const maxItem = total ? total : offset + data.length;
 		for (let i = offset; i < maxItem; i += 1) {
 			if (data[i - offset] === undefined) {
 				break;
 			}
-			cachedData[i] = data[i - offset];
+			const { id = uuid() } = data[i - offset] as any;
+			cachedIds[i] = id;
+			const item = data[i - offset];
+			dataMap.set(id, { ...item, id });
 		}
 		clearStatus(dataKey);
-		dataMap.set(dataKey, cachedData);
+		idMap.set(dataKey, cachedIds);
 		const page = Math.floor(offset / size) + 1;
 		setMeta({ size, query, page }, total);
 		invalidate('read', getReadKey({ size, query, page }));
-		return cachedData.slice(offset, offset + size).filter(() => true);
 	}
 
 	function setFind(response: ResourceFindResponse<S> | undefined, request: ResourceFindRequest<S>) {
@@ -701,15 +747,24 @@ function createResource<S = never, T extends ResourceInitOptions = ResourceInitO
 		const metaKey = getMetaKey(options);
 		const dataKey = getDataKey(options);
 		const requestedPages = requestPageMap.get(metaKey) || [];
-		const cachedData = dataMap.get(dataKey);
-		if (cachedData) {
+		const cachedIds = idMap.get(dataKey);
+		if (cachedIds) {
 			const offset = (page - 1) * size;
-			const requestedCachedData = cachedData.slice(offset, offset + size).filter(() => true);
-			setMeta(options, cachedData.length);
-			if (requestedCachedData.length === size || requestedPages.indexOf(page) !== -1) {
-				return requestedCachedData;
+			const requestedCachedIds = cachedIds.slice(offset, offset + size).filter(() => true);
+			setMeta(options, cachedIds.length);
+			if (requestedCachedIds.length === size || requestedPages.indexOf(page) !== -1) {
+				return requestedCachedIds.map((id: string) => dataMap.get(id));
 			}
 		}
+	}
+
+	function saveSave(options: any) {
+		save &&
+			save(options, {
+				get,
+				put
+			});
+		invalidateAll();
 	}
 
 	function getOrRead(options: ResourceOptions<S>): (undefined | S[])[] {
@@ -847,6 +902,7 @@ function createResource<S = never, T extends ResourceInitOptions = ResourceInitO
 	}
 
 	return {
+		save: saveSave,
 		find: resourceFind,
 		getOrRead,
 		init: resourceInit,
@@ -1116,6 +1172,16 @@ const resourceMiddlewareFactory = factory(
 			const resourceOptions = transformOptions(options, transform);
 			resource.subscribeFailed(invalidator, resourceOptions);
 			return resource.isFailed(resourceOptions);
+		};
+
+		middleware.save = (template: any, options: any, init?: any) => {
+			const resource = getResource(template, middlewareId, init);
+			const transform = !isTemplate(template) && template.transform;
+			const resourceOptions = transformOptions(options, transform);
+			// resource.subscribeRead(invalidator, options);
+			const data = resource.save(resourceOptions);
+			console.log(data);
+			return data;
 		};
 		return middleware;
 	}
