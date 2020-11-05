@@ -1198,6 +1198,80 @@ describe('Resources Middleware', () => {
 			resolvers.resolveRAF();
 			assert.strictEqual(root.innerHTML, '<div>[{"hello":"2","id":"1"}]</div>');
 		});
+
+		it('save async', async () => {
+			let resolver: any;
+			let promise = new Promise<any>((resolve) => {
+				resolver = resolve;
+			});
+
+			const root = document.createElement('div');
+			const factory = create({ resource: createResourceMiddleware<{ value: string; id: string }>() });
+			let counter = 0;
+
+			const Widget = factory(({ id, properties, middleware: { resource } }) => {
+				const { getOrRead, createOptions, save } = resource;
+				const {
+					resource: { template, options = createOptions(id) }
+				} = properties();
+				const [allItems] = getOrRead(template, options({ size: 2, page: 1 }));
+				if (!allItems) {
+					return 'Loading';
+				}
+				return (
+					<div
+						onclick={() => {
+							save(template, { id: '2', item: { value: 'Client Updated Item 2' } });
+						}}
+					>
+						<div>{JSON.stringify(allItems)}</div>
+						<div>{String(++counter)}</div>
+					</div>
+				);
+			});
+
+			const template = createResourceTemplate<{ value: string; id: string }>({
+				read: (options, { put }) => {
+					put({ data: [{ value: 'Item 1', id: '1' }, { value: 'Item 2', id: '2' }], total: 6 }, options);
+				},
+				save: (req: any, controls: any) => {
+					const cachedItem = controls.get(req.id);
+					controls.put({ ...cachedItem, ...req.item, id: cachedItem.id }, req);
+					let originalPromise = promise;
+					promise = promise.then((res) => {
+						controls.put(res, req);
+					});
+					return originalPromise;
+				},
+				find: defaultFind
+			});
+
+			const App = create({ resource: createResourceMiddleware() })(({ middleware: { resource } }) => {
+				return <Widget resource={resource({ template })} />;
+			});
+
+			const r = renderer(() => <App />);
+			r.mount({ domNode: root });
+			assert.strictEqual(
+				root.innerHTML,
+				'<div><div>[{"value":"Item 1","id":"1"},{"value":"Item 2","id":"2"}]</div><div>1</div></div>'
+			);
+			(root.children[0] as any).click();
+			resolvers.resolveRAF();
+			debugger;
+			assert.strictEqual(
+				root.innerHTML,
+				'<div><div>[{"value":"Item 1","id":"1"},{"value":"Client Updated Item 2","id":"2"}]</div><div>2</div></div>'
+			);
+			resolver({ value: 'Server Updated Item 2', id: '2' });
+			await promise;
+			resolvers.resolveRAF();
+			debugger;
+			assert.strictEqual(
+				root.innerHTML,
+				'<div><div>[{"value":"Item 1","id":"1"},{"value":"Server Updated Item 2","id":"2"}]</div><div>3</div></div>'
+			);
+		});
 	});
 
 	describe('find', () => {

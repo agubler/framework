@@ -573,6 +573,7 @@ function createResource<S = never, T extends ResourceInitOptions = ResourceInitO
 			setFind(response, request);
 		} else if (isSaveRequest(request)) {
 			dataMap.set(request.id, response);
+			invalidateAll();
 		} else if (!isFindRequest(request) && !isFindResponse(response) && response) {
 			setData(response, request);
 		}
@@ -759,12 +760,9 @@ function createResource<S = never, T extends ResourceInitOptions = ResourceInitO
 	}
 
 	function saveSave(options: any) {
-		save &&
-			save(options, {
-				get,
-				put
-			});
-		invalidateAll();
+		if (save) {
+			save(options, { get, put });
+		}
 	}
 
 	function getOrRead(options: ResourceOptions<S>): (undefined | S[])[] {
