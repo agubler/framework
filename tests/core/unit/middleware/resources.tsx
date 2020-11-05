@@ -1258,7 +1258,6 @@ describe('Resources Middleware', () => {
 			);
 			(root.children[0] as any).click();
 			resolvers.resolveRAF();
-			debugger;
 			assert.strictEqual(
 				root.innerHTML,
 				'<div><div>[{"value":"Item 1","id":"1"},{"value":"Client Updated Item 2","id":"2"}]</div><div>2</div></div>'
@@ -1266,7 +1265,6 @@ describe('Resources Middleware', () => {
 			resolver({ value: 'Server Updated Item 2', id: '2' });
 			await promise;
 			resolvers.resolveRAF();
-			debugger;
 			assert.strictEqual(
 				root.innerHTML,
 				'<div><div>[{"value":"Item 1","id":"1"},{"value":"Server Updated Item 2","id":"2"}]</div><div>3</div></div>'
