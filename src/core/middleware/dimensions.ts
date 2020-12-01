@@ -1,5 +1,5 @@
 import { create, node } from '../vdom';
-import { DimensionResults } from '../meta/Dimensions';
+import { DimensionResults } from '../../class-based/core/meta/Dimensions';
 
 const factory = create({ node });
 

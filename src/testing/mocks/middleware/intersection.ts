@@ -2,7 +2,7 @@ import global from '../../../shim/global';
 import { create, destroy, invalidator } from '../../../core/vdom';
 import icache from '../../../core/middleware/icache';
 import intersection from '../../../core/middleware/intersection';
-import { ExtendedIntersectionObserverEntry, IntersectionResult } from '../../../core/meta/Intersection';
+import { ExtendedIntersectionObserverEntry, IntersectionResult } from '../../../class-based/core/meta/Intersection';
 import { DefaultMiddlewareResult } from '../../../core/interfaces';
 
 export function createIntersectionMock() {

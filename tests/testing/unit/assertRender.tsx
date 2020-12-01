@@ -5,7 +5,7 @@ import Set from '../../../src/shim/Set';
 import Map from '../../../src/shim/Map';
 import assertRender from '../../../src/testing/assertRender';
 import { v, w, create } from '../../../src/core/vdom';
-import Themed from '../../../src/core/mixins/Themed';
+import Themed from '../../../src/class-based/core/mixins/Themed';
 import WidgetBase from '../../../src/core/WidgetBase';
 import { RenderResult } from '../../../src/core/interfaces';
 

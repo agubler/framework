@@ -1,14 +1,14 @@
 import global from '../../../src/shim/global';
 import { reference } from '../../../src/core/diff';
-import diffProperty from '../../../src/core/decorators/diffProperty';
-import customElement from '../../../src/core/decorators/customElement';
+import diffProperty from '../../../src/class-based/core/decorators/diffProperty';
+import customElement from '../../../src/class-based/core/decorators/customElement';
 import WidgetBase from '../../../src/core/WidgetBase';
 import Container from '../../../src/core/Container';
 import Registry from '../../../src/core/Registry';
 import { v, w } from '../../../src/core/vdom';
 import register, { create, CustomElementChildType } from '../../../src/core/registerCustomElement';
 import { createResolvers } from '../support/util';
-import { ThemedMixin, theme } from '../../../src/core/mixins/Themed';
+import { ThemedMixin, theme } from '../../../src/class-based/core/mixins/Themed';
 import { waitFor } from './waitFor';
 
 const { describe, it, beforeEach, afterEach, before } = intern.getInterface('bdd');

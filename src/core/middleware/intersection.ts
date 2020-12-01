@@ -7,7 +7,7 @@ import {
 	IntersectionGetOptions,
 	IntersectionDetail,
 	ExtendedIntersectionObserverEntry
-} from '../meta/Intersection';
+} from '../../class-based/core/meta/Intersection';
 
 const defaultIntersection: IntersectionResult = Object.freeze({
 	intersectionRatio: 0,
