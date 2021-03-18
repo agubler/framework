@@ -592,7 +592,6 @@ jsdomDescribe('Resources Middleware', () => {
 		it('Should transform queries using the transform configuration', () => {
 			const resource = createResourceMiddleware<{ id: string }>();
 			const factory = create({ resource });
-			const testTemplate = createResourceTemplate<TestData>('value');
 			const Widget = factory(function App({ properties, middleware: { resource } }) {
 				const {
 					resource: { template }
@@ -606,6 +605,8 @@ jsdomDescribe('Resources Middleware', () => {
 				const data = get(options({ query: { id: '1' } }), { read });
 				return <div>{JSON.stringify(data)}</div>;
 			});
+
+			const testTemplate = createResourceTemplate<TestData>('value');
 
 			const App = create({ resource: createResourceMiddleware() })(function App({
 				id,
@@ -2326,6 +2327,7 @@ jsdomDescribe('Resources Middleware', () => {
 				return <div>{JSON.stringify(data)}</div>;
 			});
 
+			// createResourceTemplate(Widget,
 			const template = createResourceTemplate(Widget, {
 				idKey: 'value',
 				scan: (req, controls) => {

@@ -77,6 +77,8 @@ export interface TemplateWithOptions<
 > {
 	template: TemplateWrapper<RESOURCE_DATA, CUSTOM_API>;
 	options: undefined;
+	type?: RESOURCE_DATA;
+	api?: CUSTOM_API extends CustomTemplate ? CUSTOM_API : DefaultApi;
 }
 
 export interface TemplateWithOptionsFactory<DATA, OPTIONS, CUSTOM_API> {
@@ -240,66 +242,59 @@ export function defaultFilter(query: ReadQuery, item: any, type: string = 'conta
 	return true;
 }
 
+// const testResource = createResourceMiddleware<{ value: string }>();
+// const Widget = create({ resource: testResource })(() => '');
+
+// type WidgetResourceData<P extends WidgetFactory<any>> = P extends WidgetFactory<
+// 	WNodeFactoryTypes<ResourceProperties<infer D, any>>
+// >
+// 	? D
+// 	: void;
+// type WidgetResourceApi<P extends WidgetFactory<any>> = P extends WidgetFactory<
+// 	WNodeFactoryTypes<ResourceProperties<any, infer R>>
+// >
+// 	? R extends CustomTemplate ? R : DefaultApi
+// 	: DefaultApi;
+
+type WidgetResourceDataType<W extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<any>>>> = NonNullable<
+	ReturnType<W>['properties']['resource']['type']
+>;
+type WidgetResourceApi<W extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<any>>>> = NonNullable<
+	ReturnType<W>['properties']['resource']['api']
+>;
+
 export type WidgetFactory<T extends WNodeFactoryTypes> =
 	| DefaultChildrenWNodeFactory<T>
 	| WNodeFactory<T>
 	| OptionalWNodeFactory<T>;
 
 export function createResourceTemplate<
-	P extends WidgetFactory<any>,
+	W extends WidgetFactory<WNodeFactoryTypes<any>>,
 	T extends TemplateFactory<
-		P extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<infer D, undefined>>>
-			? D
-			: P extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<infer D, any>>> ? D : void,
+		WidgetResourceDataType<W>,
 		any,
-		P extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<infer D, infer R>>>
-			? R extends CustomTemplate ? CustomTemplateApi<R, D> : void
-			: P extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<infer D, undefined>>>
-				? CustomTemplateApi<DefaultApi, D>
-				: void
+		CustomTemplateApi<WidgetResourceApi<W>, WidgetResourceDataType<W>>
 	>
 >(
-	widget: P,
+	widget: W,
 	template: T
 ): T extends TemplateFactory<any, infer O, any>
-	? P extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<infer D, undefined>>>
-		? TemplateWithOptionsFactory<D, O, DefaultApi>
-		: P extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<infer D, infer R>>>
-			? TemplateWithOptionsFactory<D, O, R>
-			: void
+	? TemplateWithOptionsFactory<WidgetResourceDataType<W>, O, WidgetResourceApi<W>>
 	: void;
-export function createResourceTemplate<P extends WidgetFactory<any>>(
-	widget: P,
-	template: P extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<infer D, infer R>>>
-		? R extends CustomTemplate ? Template<D> & CustomTemplateApi<R, D> : void
-		: P extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<infer D, undefined>>>
-			? Template<D> & CustomTemplateApi<DefaultApi, D>
-			: void
-): P extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<infer D, infer R>>>
-	? R extends CustomTemplate
-		? {
-				template: {
-					template: () => Template<D>;
-					templateOptions: any;
-					api: R;
-				};
-		  }
-		: void
-	: P extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<infer D, undefined>>>
-		? {
-				template: {
-					template: () => Template<D>;
-					templateOptions: any;
-					api: DefaultApi;
-				};
-		  }
-		: void;
-export function createResourceTemplate<P extends WidgetFactory<any>>(
-	widget: P,
-	idKey: P extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<infer D, undefined>>> ? keyof D : void
-): P extends WidgetFactory<WNodeFactoryTypes<ResourceProperties<infer D, undefined>>>
-	? TemplateWithOptionsFactory<D, { data: D[] }, DefaultApi>
-	: void;
+export function createResourceTemplate<W extends WidgetFactory<WNodeFactoryTypes<any>>>(
+	widget: W,
+	template: Template<WidgetResourceDataType<W>> & CustomTemplateApi<WidgetResourceApi<W>, WidgetResourceDataType<W>>
+): {
+	template: {
+		template: () => Template<WidgetResourceDataType<W>>;
+		templateOptions: any;
+		api: WidgetResourceApi<W>;
+	};
+};
+export function createResourceTemplate<W extends WidgetFactory<WNodeFactoryTypes<any>>>(
+	widget: W,
+	idKey: keyof WidgetResourceDataType<W>
+): TemplateWithOptionsFactory<WidgetResourceDataType<W>, { data: WidgetResourceDataType<W>[] }, DefaultApi>;
 export function createResourceTemplate<RESOURCE_DATA, TEMPLATE extends CustomTemplate = DefaultApi>(
 	template: Template<RESOURCE_DATA> & CustomTemplateApi<TEMPLATE, RESOURCE_DATA>
 ): {
@@ -364,6 +359,8 @@ export interface ResourceWrapper<MIDDLEWARE_DATA, RESOURCE_DATA, CUSTOM_API = un
 export interface ResourceWrapperWithOptions<MIDDLEWARE_DATA, RESOURCE_DATA, API> {
 	template: ResourceWrapper<MIDDLEWARE_DATA, RESOURCE_DATA, API>;
 	options?: ReadOptions;
+	type?: MIDDLEWARE_DATA;
+	api?: API extends CustomTemplate ? API : undefined;
 }
 
 export type ResourceDetails<MIDDLEWARE_DATA, API = undefined> = MIDDLEWARE_DATA extends infer RESOURCE_DATA
@@ -376,6 +373,8 @@ export type DefaultTemplateProperty<MIDDLEWARE_DATA> = TemplateOptions<{
 	template?: void;
 	options?: void;
 	idKey: keyof MIDDLEWARE_DATA;
+	type?: MIDDLEWARE_DATA;
+	api?: DefaultApi;
 };
 
 export interface ResourceProperties<MIDDLEWARE_DATA, API = void> {
